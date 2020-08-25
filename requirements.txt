@@ -1,0 +1,4 @@
+orderedset
+cbor2
+pycose>=0.1.3
+cryptography
