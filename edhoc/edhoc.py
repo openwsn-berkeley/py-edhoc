@@ -27,6 +27,10 @@ class EdhocRole(metaclass=ABCMeta):
                  method_corr: Optional[int] = None,
                  conn_idi: bytes = b'',
                  conn_idr: bytes = b'',
+                 cred_id_r_type: Optional[int] = None,
+                 cred_r: bytes = b'',
+                 cred_id_i_type: Optional[int] = None,
+                 cred_i: bytes = b'',
                  cipher_suite: Optional[BaseCipherSuite] = None,
                  aad1: bytes = b'',
                  aad2: bytes = b'',
@@ -39,6 +43,11 @@ class EdhocRole(metaclass=ABCMeta):
         self.aad1 = aad1
         self.aad2 = aad2
         self.aad3 = aad3
+
+        self.cred_i = cred_i
+        self.cred_id_i_type = cred_id_i_type
+        self.cred_r = cred_r
+        self.cred_id_r_type = cred_id_r_type
 
         self.callback_msg1: Optional[Callable] = None
         self.callback_msg2: Optional[Callable] = None

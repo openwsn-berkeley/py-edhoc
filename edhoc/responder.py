@@ -1,17 +1,20 @@
 from typing import Union, Optional, List
 
 import cbor2
+from pycose.keys.okp import OKP
 
 from edhoc.edhoc import EdhocRole
 from edhoc.message1 import MessageOne
-from edhoc.message2 import MessageTwo
 from edhoc.suites import BaseCipherSuite, CipherSuiteMap, CipherSuite
-from pycose.keys.okp import OKP
 
 
 class Responder(EdhocRole):
-    def __init__(self, connection_id: bytes, suites_r: Optional[List[BaseCipherSuite]] = None):
-        super().__init__(conn_idr=connection_id)
+    def __init__(self,
+                 connection_id: bytes,
+                 cred: bytes,
+                 cred_id_type: int,
+                 suites_r: Optional[List[BaseCipherSuite]] = None):
+        super().__init__(conn_idr=connection_id, cred_r=cred, cred_id_r_type=cred_id_type)
 
         if suites_r is None:
             self.suites_r = {BaseCipherSuite.CIPHER_SUITE_0}
@@ -66,10 +69,13 @@ class Responder(EdhocRole):
         cipher_suite_info: CipherSuite = CipherSuiteMap[self.cipher_suite.name].value
         self.priv_key = self._gen_ephemeral_key(cipher_suite_info.edhoc_ecdh_curve)
 
+        shared_secret = self._compute_ecdh()
 
+        if self.method_corr in {1, 3}:
+            th_2 = self._compute_transcript([self.priv_key.x, self.conn_idr])
+        else:
+            th_2 = self._compute_transcript([self.conn_idi, self.priv_key.x, self.conn_idr])
 
-        return MessageTwo(
-            method_corr=self.method_corr,
-            ciphertext=ciphertext,
-            conn_idr=self.conn_idr,
-            conn_idi=self.conn_idi).encode()
+        prk_2e = self._key_derivation(key=shared_secret)
+
+        MessageTwo
