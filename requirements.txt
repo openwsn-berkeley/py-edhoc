@@ -1,4 +1,4 @@
 orderedset>=2.0.3
 cbor2>=5.1.2
 cryptography>=3.0
--e git+git@github.com:TimothyClaeys/pycose.git@cose_x509#egg=pycose
+-e git+https://github.com/TimothyClaeys/pycose.git@cose_x509#egg=pycose
