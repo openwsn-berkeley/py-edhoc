@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="ProjectModuleManager">
-    <modules>
-      <module fileurl="file://$PROJECT_DIR$/../COSE-PYTHON/.idea/COSE-PYTHON.iml" filepath="$PROJECT_DIR$/../COSE-PYTHON/.idea/COSE-PYTHON.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/EDHOC-PYTHON.iml" filepath="$PROJECT_DIR$/.idea/EDHOC-PYTHON.iml" />
-    </modules>
-  </component>
-</project>
