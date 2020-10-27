@@ -1,4 +1,6 @@
 orderedset>=2.0.3
-cbor2>=5.1.2
-cryptography>=3.0
--e git+https://github.com/TimothyClaeys/pycose.git@cose_x509#egg=pycose
+cbor2>=5.2.0
+cryptography>=3.2
+cose>=0.9.dev1
+aenum
+
