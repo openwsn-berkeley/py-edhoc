@@ -1,0 +1,36 @@
+{
+  "I": {
+    "key_type": 0,
+    "selected": 1,
+    "supported": [
+      0,
+      1,
+      2
+    ],
+    "x": "0f9476977405403e7acc0548112821b277662ccc7f089e328bd273d6064bf769",
+    "g_x": "1c7f14228f7e682dbdb3de23d24ed21b841e31bae7e8dffb911ee17c51a45b13",
+    "message_1": "01840100010258201c7f14228f7e682dbdb3de23d24ed21b841e31bae7e8dffb911ee17c51a45b132e",
+    "conn_id": "09",
+    "ad1": ""
+  },
+  "R": {
+    "key_type": 0,
+    "x": "e66fbd1b73e1eff2dfcd931c0180033d436468f4ca736259d59d1eaff1ad5200",
+    "g_x": "16c455f1fcb99b75c9a27f40e4310bc9c86e8104b7ec09df4baf7c0d918ea31a",
+    "conn_id": "2b",
+    "ad2": ""
+  },
+  "S": {
+    "corr": 1,
+    "method": 0,
+    "method_corr": 1,
+    "salt": "",
+    "supported": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "g_xy": "1d0d73510e6b2e0ebb4a18f49c7278071c504e305a057982e4e50722eb915f67"
+  }
+}
