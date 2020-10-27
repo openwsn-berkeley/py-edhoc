@@ -3,25 +3,17 @@ from typing import Optional, Union, Callable, List
 
 from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.asymmetric import x25519
-from cryptography.hazmat.primitives.hashes import SHA256, Hash
+from cryptography.hazmat.primitives.hashes import Hash
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption, PublicFormat
+from cose.keys.cosekey import CoseEllipticCurves
+from cose.keys.ec import EC2
+from cose.keys.okp import OKP
 
-from edhoc.suites import BaseCipherSuite, CipherSuiteMap
-from pycose.algorithms import AlgorithmIDs
-from pycose.keys.cosekey import EllipticCurveType
-from pycose.keys.ec import EC2
-from pycose.keys.okp import OKP
+from edhoc.definitions import CipherSuite
 
 
 class EdhocRole(metaclass=ABCMeta):
-    CURVE_MAPPING = {
-        EllipticCurveType.X25519: x25519.X25519PrivateKey
-    }
-
-    HASH_MAPPING = {
-        AlgorithmIDs.SHA_256: SHA256
-    }
 
     def __init__(self,
                  method_corr: Optional[int] = None,
@@ -31,7 +23,7 @@ class EdhocRole(metaclass=ABCMeta):
                  cred_r: bytes = b'',
                  cred_id_i_type: Optional[int] = None,
                  cred_i: bytes = b'',
-                 cipher_suite: Optional[BaseCipherSuite] = None,
+                 cipher_suite: Optional[CipherSuite] = None,
                  aad1: bytes = b'',
                  aad2: bytes = b'',
                  aad3: bytes = b''):
@@ -83,8 +75,7 @@ class EdhocRole(metaclass=ABCMeta):
     def _compute_transcript(self, msg_parts: List[bytes]):
         """ Computes the transcript hash """
 
-        hash_func_id = CipherSuiteMap[BaseCipherSuite(self.cipher_suite).name].value.edhoc_hash
-        hash_func = self.HASH_MAPPING[hash_func_id]
+        hash_func = CipherSuite(self.cipher_suite).name.value.edhoc_hash
 
         h = Hash(algorithm=hash_func(), backend=openssl.backend)
 
@@ -94,21 +85,20 @@ class EdhocRole(metaclass=ABCMeta):
         return h.finalize()
 
     def _compute_ecdh(self) -> bytes:
-        curve = CipherSuiteMap[BaseCipherSuite(self.cipher_suite).name].value.edhoc_ecdh_curve
+        curve = CipherSuite(self.cipher_suite).name.value.edhoc_ecdh_curve
 
-        if isinstance(self.priv_key, OKP) and isinstance(self.pub_key, OKP) and curve == EllipticCurveType.X25519:
+        if isinstance(self.priv_key, OKP) and isinstance(self.pub_key, OKP) and curve == CoseEllipticCurves.X25519:
             private_key = x25519.X25519PrivateKey.from_private_bytes(data=self.priv_key.d)
             public_key = x25519.X25519PublicKey.from_public_bytes(data=self.pub_key.x)
 
             return private_key.exchange(public_key)
-        elif isinstance(self.priv_key, OKP) and isinstance(self.pub_key, OKP) and curve == EllipticCurveType.P_256:
+        elif isinstance(self.priv_key, OKP) and isinstance(self.pub_key, OKP) and curve == CoseEllipticCurves.P_256:
             pass
         else:
             TypeError("Invalid key or curve type")
 
     def _key_derivation(self, key: bytes, length=16, salt=b'', info=b''):
-        hash_func_id = CipherSuiteMap[BaseCipherSuite(self.cipher_suite).name].value.edhoc_hash
-        hash_func = self.HASH_MAPPING[hash_func_id]
+        hash_func = CipherSuite(self.cipher_suite).value.edhoc_hash
 
         hkdf = HKDF(algorithm=hash_func(),
                     length=length,
@@ -117,25 +107,3 @@ class EdhocRole(metaclass=ABCMeta):
                     backend=openssl.backend)
         return hkdf.derive(key)
 
-    def _gen_ephemeral_key(self, curve: EllipticCurveType):
-        """ Generate an ephemeral key pair to perform the ECDH computation. """
-
-        private_key = self.CURVE_MAPPING[curve]
-        private_key = private_key.generate()
-
-        d_bytes = private_key.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
-
-        x_bytes = private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-
-        return OKP(d=d_bytes, x=x_bytes)
-
-
-class EdhocMessage(metaclass=ABCMeta):
-    @classmethod
-    @abstractmethod
-    def decode(cls, received: bytes):
-        raise NotImplementedError
-
-    @abstractmethod
-    def encode(self):
-        raise NotImplementedError
