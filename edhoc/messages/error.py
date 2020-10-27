@@ -1,13 +1,13 @@
 from typing import List, Union, Optional
 
-from edhoc.suites import BaseCipherSuite
+from edhoc.definitions import CipherSuite
 
 
 class MessageError:
     def __init__(self,
                  err_msg: str,
                  conn_id: bytes = b'',
-                 suites_r: Optional[Union[List[BaseCipherSuite], BaseCipherSuite]] = None):
+                 suites_r: Optional[Union[List[CipherSuite], CipherSuite]] = None):
         self.err_msg = err_msg
         self.conn_id = conn_id
         self.suites_r = suites_r
