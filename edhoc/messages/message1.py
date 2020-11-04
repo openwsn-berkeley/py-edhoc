@@ -1,3 +1,4 @@
+from binascii import hexlify
 from typing import List, TYPE_CHECKING
 
 import cbor2
@@ -10,51 +11,57 @@ if TYPE_CHECKING:
 
 
 class MessageOne(EdhocMessage):
+    METHOD_CORR = 0
+    CIPHERS = 1
+    G_X = 2
+    CONN_ID = 3
+    AAD1 = 4
+
     @classmethod
-    def decode(cls, received: bytes, corr: 'Correlation') -> 'MessageOne':
+    def decode(cls, received: bytes) -> 'MessageOne':
         """
         Tries to decode the bytes as an EDHOC MessageOne.
 
         :param received: Bytes to decode.
-        :param corr: Correlation value for transport protocol.
         :raises EdhocInvalidMessage: Decoding routine for MessageOne failed.
         :returns: An EDHOC MessageOne object.
         """
 
-        decoded = []
-        while len(received) > 0:
-            decoded += [cbor2.loads(received)]
-            received = received[received.startswith(cbor2.dumps(decoded[-1])) and len(cbor2.dumps(decoded[-1])):]
+        decoded = super().decode(received)
 
-        if isinstance(decoded[1], int):
-            selected_cipher = decoded[1]
-            supported_ciphers = [decoded[1]]
-        elif isinstance(decoded[1], list):
-            selected_cipher = decoded[1][0]
-            supported_ciphers = decoded[1:]
+        method_corr = decoded[cls.METHOD_CORR]
+
+        if isinstance(decoded[cls.CIPHERS], int):
+            selected_cipher = decoded[cls.CIPHERS]
+            supported_ciphers = [decoded[cls.CIPHERS]]
+        elif isinstance(decoded[cls.CIPHERS], list):
+            selected_cipher = decoded[cls.CIPHERS][0]
+            supported_ciphers = decoded[cls.CIPHERS][1:]
         else:
             raise EdhocInvalidMessage("Failed to decode bytes as MessageOne")
 
-        method = (decoded[0] - corr) // 4
-        g_x = decoded[2]
+        g_x = decoded[cls.G_X]
 
-        msg = cls(corr=corr, method=method, selected_cipher=selected_cipher, cipher_suites=supported_ciphers, g_x=g_x)
+        if decoded[cls.CONN_ID] != b'':
+            if isinstance(decoded[cls.CONN_ID], int):
+                conn_id = int(decoded[cls.CONN_ID] + 24).to_bytes(1, byteorder="big")
+            else:
+                conn_id = decoded[cls.CONN_ID]
+        else:
+            conn_id = b''
+
+        msg = cls(method_corr=method_corr, selected_cipher=selected_cipher, cipher_suites=supported_ciphers, g_x=g_x,
+                  conn_idi=conn_id)
 
         try:
-            msg.conn_idi = decoded[3]
-        except IndexError:
-            pass
-
-        try:
-            msg.aad1 = decoded[4]
+            msg.aad1 = decoded[cls.AAD1]
         except IndexError:
             pass
 
         return msg
 
     def __init__(self,
-                 corr: int,
-                 method: int,
+                 method_corr: int,
                  cipher_suites: List['CipherSuite'],
                  selected_cipher: 'CipherSuite',
                  g_x: bytes,
@@ -64,8 +71,7 @@ class MessageOne(EdhocMessage):
         """
         Creates an EDHOC MessageOne object.
 
-        :param corr: Determines which connection identifiers that are omitted.
-        :param method: Sets the authentication method (combinations of Signature / Static Diffie-Hellman)
+        :param method_corr: Determines which connection identifiers that are omitted.
         :param cipher_suites: Cipher suites chosen by the Initiator (ordered by decreasing preference).
         :param selected_cipher: The selected cipher.
         :param g_x: The ephemeral public key of the Initiator.
@@ -73,17 +79,22 @@ class MessageOne(EdhocMessage):
         :param external_aad: Unprotected opaque auxiliary data (transferred together with EDHOC message 1).
         """
 
-        self.corr = corr
-        self.method = method
+        self.method_corr = method_corr
         self.cipher_suites = cipher_suites
         self.selected_cipher = selected_cipher
         self.g_x = g_x
         self.conn_idi = conn_idi
         self.aad1 = external_aad
 
+        self.corr = self.method_corr % 4
+        self.method = (self.method_corr - self.corr) // 4
+
     @property
-    def method_corr(self):
-        return self.method * 4 + self.corr
+    def conn_id_encoded(self):
+        if len(self.conn_idi) == 1:
+            return int.from_bytes(self.conn_idi, byteorder='big') - 24
+        else:
+            return self.conn_idi
 
     def encode(self) -> bytes:
         """
@@ -103,9 +114,19 @@ class MessageOne(EdhocMessage):
         else:
             raise ValueError('Cipher suite list must contain at least 1 item.')
 
-        msg = [self.method_corr, suites, self.g_x, self.conn_idi]
+        msg = [self.method_corr, suites, self.g_x, self.conn_id_encoded]
 
         if self.aad1 != b'':
-            msg.append(self.aad1)
+            msg.append(cbor2.dumps(self.aad1))
 
-        return b"".join([cbor2.dumps(msg_part) for msg_part in msg])
+        return b"".join(cbor2.dumps(chunk) for chunk in msg)
+
+    def __repr__(self) -> str:
+        output = f'<MessageOne: [{self.method_corr}, {self.selected_cipher} | {self.cipher_suites}, ' \
+                 f'{EdhocMessage._truncate(self.g_x)}, {hexlify(self.conn_idi)}'
+        if self.aad1 != b'':
+            output += [f'{hexlify(self.aad1)}]>']
+        else:
+            output += [']>']
+
+        return output
