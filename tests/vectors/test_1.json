@@ -2,7 +2,9 @@
   "I": {
     "key_type": 0,
     "selected": 0,
-    "supported": [0],
+    "supported": [
+      0
+    ],
     "x": "8f781a095372f85b6d9f6109ae422611734d7dbfa0069a2df2935bb2e053bf35",
     "g_x": "898ff79a02067a16ea1eccb90fa52246f5aa4dd6ec076bba0259d904b7ec8b0c",
     "message_1": "01005820898ff79a02067a16ea1eccb90fa52246f5aa4dd6ec076bba0259d904b7ec8b0c40",
@@ -11,10 +13,11 @@
   },
   "R": {
     "key_type": 0,
-    "x": "fd8cd877c9ea386e6af34ff7e606c4b64ca831c8ba33134fd4cd7167cabaecda",
-    "g_x": "71a3d599c21da18902a1aea810b2b6382ccd8d5f9bf0195281754c5ebcaf301e",
+    "y": "fd8cd877c9ea386e6af34ff7e606c4b64ca831c8ba33134fd4cd7167cabaecda",
+    "g_y": "71a3d599c21da18902a1aea810b2b6382ccd8d5f9bf0195281754c5ebcaf301e",
     "conn_id": "2b",
-    "ad2": ""
+    "ad2": "",
+    "message_2": "582071a3d599c21da18902a1aea810b2b6382ccd8d5f9bf0195281754c5ebcaf301e13585099d53801a725bfd6a4e71d0484b755ec383df77a916ec0dbc02bba7c21a200807b4f585f728b671ad678a43aacd33b78ebd566cd004fc6f1d406f01d9704e705b21552a9eb28ea316ab65037d717862e"
   },
   "S": {
     "corr": 1,

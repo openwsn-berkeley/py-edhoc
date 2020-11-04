@@ -24,9 +24,15 @@ def type_conversion(decoded: dict):
         return decoded
 
     for x in ['I', 'R']:
-        decoded[x]['x'] = unhexlify(decoded[x]['x'])
-        decoded[x]['g_x'] = unhexlify(decoded[x]['g_x'])
+        if x == "I":
+            decoded[x]['x'] = unhexlify(decoded[x]['x'])
+            decoded[x]['g_x'] = unhexlify(decoded[x]['g_x'])
+        if x == "R":
+            decoded[x]['y'] = unhexlify(decoded[x]['y'])
+            decoded[x]['g_y'] = unhexlify(decoded[x]['g_y'])
+
         decoded[x]['conn_id'] = unhexlify(decoded[x]['conn_id'])
+
         if "ad1" in decoded[x]:
             decoded[x]["ad1"] = unhexlify(decoded[x]["ad1"])
         if "ad2" in decoded[x]:

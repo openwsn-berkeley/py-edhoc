@@ -15,10 +15,11 @@
   },
   "R": {
     "key_type": 0,
-    "x": "e66fbd1b73e1eff2dfcd931c0180033d436468f4ca736259d59d1eaff1ad5200",
-    "g_x": "16c455f1fcb99b75c9a27f40e4310bc9c86e8104b7ec09df4baf7c0d918ea31a",
+    "y": "e66fbd1b73e1eff2dfcd931c0180033d436468f4ca736259d59d1eaff1ad5200",
+    "g_y": "16c455f1fcb99b75c9a27f40e4310bc9c86e8104b7ec09df4baf7c0d918ea31a",
     "conn_id": "2b",
-    "ad2": ""
+    "ad2": "",
+    "message_2": ""
   },
   "S": {
     "corr": 1,
