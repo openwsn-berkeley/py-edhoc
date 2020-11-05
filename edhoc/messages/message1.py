@@ -1,13 +1,13 @@
 from binascii import hexlify
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Optional
 
 import cbor2
 
-from edhoc.exceptions import EdhocCipherException, EdhocInvalidMessage
+from edhoc.exceptions import EdhocInvalidMessage
 from edhoc.messages.base import EdhocMessage
 
 if TYPE_CHECKING:
-    from edhoc.definitions import Correlation, CipherSuite
+    from edhoc.definitions import CipherSuite
 
 
 class MessageOne(EdhocMessage):
@@ -44,14 +44,18 @@ class MessageOne(EdhocMessage):
 
         if decoded[cls.CONN_ID] != b'':
             if isinstance(decoded[cls.CONN_ID], int):
-                conn_id = int(decoded[cls.CONN_ID] + 24).to_bytes(1, byteorder="big")
+                conn_idi = EdhocMessage.decode_bstr_id(decoded[cls.CONN_ID])
             else:
-                conn_id = decoded[cls.CONN_ID]
+                conn_idi = decoded[cls.CONN_ID]
         else:
-            conn_id = b''
+            conn_idi = b''
 
-        msg = cls(method_corr=method_corr, selected_cipher=selected_cipher, cipher_suites=supported_ciphers, g_x=g_x,
-                  conn_idi=conn_id)
+        msg = cls(
+            method_corr=method_corr,
+            selected_cipher=selected_cipher,
+            cipher_suites=supported_ciphers,
+            g_x=g_x,
+            conn_idi=conn_idi)
 
         try:
             msg.aad1 = decoded[cls.AAD1]
@@ -65,7 +69,7 @@ class MessageOne(EdhocMessage):
                  cipher_suites: List['CipherSuite'],
                  selected_cipher: 'CipherSuite',
                  g_x: bytes,
-                 conn_idi: bytes = b'',
+                 conn_idi: Optional[bytes] = None,
                  external_aad: bytes = b''):
 
         """
@@ -89,13 +93,6 @@ class MessageOne(EdhocMessage):
         self.corr = self.method_corr % 4
         self.method = (self.method_corr - self.corr) // 4
 
-    @property
-    def conn_id_encoded(self):
-        if len(self.conn_idi) == 1:
-            return int.from_bytes(self.conn_idi, byteorder='big') - 24
-        else:
-            return self.conn_idi
-
     def encode(self) -> bytes:
         """
         Encodes the first EDHOC message.
@@ -104,17 +101,14 @@ class MessageOne(EdhocMessage):
         :returns: EDHOC message 1 encoded as bytes.
         """
 
-        if self.selected_cipher not in self.cipher_suites:
-            raise EdhocCipherException("Selected cipher is not included in the supported cipher suite.")
-
         if len(self.cipher_suites) > 1:
-            suites = [self.selected_cipher] + self.cipher_suites
+            suites = [int(self.selected_cipher)] + self.cipher_suites
         elif len(self.cipher_suites) == 1:
-            suites = self.selected_cipher
+            suites = int(self.selected_cipher)
         else:
             raise ValueError('Cipher suite list must contain at least 1 item.')
 
-        msg = [self.method_corr, suites, self.g_x, self.conn_id_encoded]
+        msg = [self.method_corr, suites, self.g_x, self.encode_bstr_id(self.conn_idi)]
 
         if self.aad1 != b'':
             msg.append(cbor2.dumps(self.aad1))
