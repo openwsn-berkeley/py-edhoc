@@ -41,7 +41,8 @@ class EdhocRole(metaclass=ABCMeta):
 
         :param cred: CBOR-encoded public authentication credentials.
         :param cred_id: The credential identifier (a CBOR encoded COSE header map)
-        :param auth_key: The private authentication key (of type :class:`~cose.keys.ec2.EC2` or :class:`~cose.keys.okp.OKP`). Forms a key pair with `local_authkey`.
+        :param auth_key: The private authentication key (of type :class:`~cose.keys.ec2.EC2` or \
+        :class:`~cose.keys.okp.OKP`). Forms a key pair with `local_authkey`. # noqa: E501
         :param supported_ciphers: A list of ciphers supported.
         :param conn_id: The connection identifier to be used.
         :param aad1_cb: A callback to pass received additional data to the application protocol.
@@ -327,6 +328,8 @@ class EdhocRole(metaclass=ABCMeta):
         return aad
 
     def _verify_signature(self, signature: bytes) -> bool:
+        _ = signature
+
         if self.peer_cred is None:
             return True
         else:
