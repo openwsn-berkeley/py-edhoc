@@ -5,4 +5,4 @@ venv/*
 *.pyc
 __pycache__
 dist/
-docs/_build/*
+docs/build/

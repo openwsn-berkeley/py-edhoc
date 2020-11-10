@@ -172,7 +172,8 @@ class Initiator(EdhocRole):
         """
         Finalizes the key exchange.
 
-        :return: A 4-tuple containing the initiator and responder's connection identifiers and the application AEAD and hash algorithms.
+        :return: A 4-tuple containing the initiator and responder's connection identifiers and the application AEAD and\
+         hash algorithms.
         """
 
         app_aead = self.cipher_suite.app_aead
@@ -187,9 +188,6 @@ class Initiator(EdhocRole):
 
         hash_func = config_cose(self.cipher_suite.hash).hash
         cose_key = self._create_cose_key(self._hkdf3, 16, 'K_3ae', self._prk3e2m, KeyOps.ENCRYPT)
-
-        signature_or_mac3 = self.signature_or_mac3(
-            self._mac(self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb))
 
         # create payload for the COSE_Encrypt0
         payload = [self._p_3ae]

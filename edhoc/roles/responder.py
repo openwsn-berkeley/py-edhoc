@@ -7,7 +7,7 @@ from cose.attributes.algorithms import config as config_cose, CoseEllipticCurves
 
 from edhoc.definitions import CipherSuite, Correlation, Method
 from edhoc.exceptions import EdhocCipherException
-from edhoc.messages import *
+from edhoc.messages import MessageOne, MessageError, MessageThree, EdhocMessage, MessageTwo
 from edhoc.roles.edhoc import EdhocRole, Key, CoseHeaderMap, CBOR
 
 

@@ -5,8 +5,8 @@ from edhoc.messages.base import EdhocMessage
 
 
 class MessageError(EdhocMessage):
-    def decode(self, received: bytes) -> 'MessageError':
-        decoded = super(MessageError, self).decode(received)
+    def decode(self, received: bytes):
+        _ = super(MessageError, self).decode(received)
 
     def __init__(self,
                  err_msg: str,
