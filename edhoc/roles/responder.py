@@ -5,7 +5,7 @@ import cbor2
 from cose import Enc0Message, KeyOps, OKP, CoseHeaderKeys
 from cose.attributes.algorithms import config as config_cose, CoseEllipticCurves
 
-from edhoc.definitions import CipherSuite, Correlation, Method
+from edhoc.definitions import CipherSuite, Correlation
 from edhoc.exceptions import EdhocCipherException
 from edhoc.messages import MessageOne, MessageError, MessageThree, EdhocMessage, MessageTwo
 from edhoc.roles.edhoc import EdhocRole, Key, CoseHeaderMap, CBOR
@@ -141,10 +141,6 @@ class Responder(EdhocRole):
     @property
     def remote_authkey(self) -> Key:
         return self._remote_authkey
-
-    @property
-    def is_static_dh(self) -> bool:
-        return self.method in [Method.STATIC_STATIC, Method.SIGN_STATIC]
 
     def signature_or_mac2(self, mac_2: bytes):
         return self._signature_or_mac(mac_2, self._th2_input, self.aad2_cb)

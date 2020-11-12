@@ -76,7 +76,10 @@ class EdhocRole(metaclass=ABCMeta):
         return transcript.finalize()
 
     def _signature_or_mac(self, mac: bytes, transcript: bytes, aad_cb: Callable[..., bytes]) -> bytes:
-        if not self.is_static_dh:
+
+        role = 'I' if type(self).__name__ == 'Initiator' else 'R'
+
+        if not self.is_static_dh(role):
             cose_sign = Sign1Message(
                 phdr=self.cred_id,
                 payload=mac,
@@ -84,6 +87,21 @@ class EdhocRole(metaclass=ABCMeta):
             return cose_sign.compute_signature(self.auth_key)
         else:
             return mac
+
+    def is_static_dh(self, role: str) -> bool:
+        """
+        Check if EDHOC role uses static DH authentication.
+
+        :param role: Check if Initiator 'I' or Responder 'R' uses static Diffie-Hellman keys for authentication.
+        :return: Boolean value, True if EDHOC role uses static Diffie-Hellman keys for authentication else False.
+        """
+        if role not in {'I', 'R'}:
+            raise ValueError("role should be either 'I' (initiator) or 'R' (responder)")
+
+        if role == 'I':
+            return self.method in {Method.STATIC_SIGN, Method.STATIC_STATIC}
+        else:
+            return self.method in {Method.SIGN_STATIC, Method.STATIC_STATIC}
 
     # @functools.lru_cache()
     @staticmethod
@@ -204,17 +222,6 @@ class EdhocRole(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @property
-    @abstractmethod
-    def is_static_dh(self) -> bool:
-        """
-        Check if EDHOC role uses static DH authentication.
-
-        :return: Boolean value, True if EDHOC role uses static Diffie-Hellman keys for authentication else False.
-        """
-
-        raise NotImplementedError()
-
-    @property
     def data_3(self) -> CBOR:
         """ Create the data_3 message part from EDHOC message 3. """
 
@@ -247,14 +254,14 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     def _prk3e2m(self) -> bytes:
-        if not self.is_static_dh:
+        if not self.is_static_dh('R'):
             return self._prk2e
         else:
             return self._prk3e2m_static_dh(self._prk2e)
 
     @property
     def _prk4x3m(self) -> bytes:
-        if not self.is_static_dh:
+        if not self.is_static_dh('I'):
             return self._prk3e2m
         else:
             return self._prk4x3m_static_dh(self._prk3e2m)
