@@ -94,7 +94,7 @@ def type_conversion(decoded: dict):
             decoded[x]['data_2'] = unhexlify(decoded[x]['data_2'])
             decoded[x]['input_th_2'] = unhexlify(decoded[x]['input_th_2'])
             decoded[x]['th_2'] = unhexlify(decoded[x]['th_2'])
-            decoded[x]['info_k2_m'] = unhexlify(decoded[x]['info_k2_m'])
+            decoded[x]['info_k_2m'] = unhexlify(decoded[x]['info_k_2m'])
             decoded[x]['a_2m'] = unhexlify(decoded[x]['a_2m'])
             decoded[x]['eaad_2m'] = cbor2.loads(decoded[x]['a_2m'])[2]
             decoded[x]['k_2m'] = unhexlify(decoded[x]['k_2m'])
