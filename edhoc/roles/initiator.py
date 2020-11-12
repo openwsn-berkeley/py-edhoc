@@ -129,10 +129,6 @@ class Initiator(EdhocRole):
     def remote_authkey(self) -> Key:
         return self._remote_authkey
 
-    @property
-    def is_static_dh(self) -> bool:
-        return self.method in [Method.STATIC_STATIC, Method.STATIC_SIGN]
-
     def signature_or_mac3(self, mac_3: bytes):
         return self._signature_or_mac(mac_3, self._th3_input, self.aad3_cb)
 
