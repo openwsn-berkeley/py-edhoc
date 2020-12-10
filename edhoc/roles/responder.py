@@ -6,7 +6,7 @@ from cose import Enc0Message, KeyOps, OKP, CoseHeaderKeys
 from cose.attributes.algorithms import config as config_cose, CoseEllipticCurves
 
 from edhoc.definitions import CipherSuite, Correlation, EdhocState
-from edhoc.exceptions import EdhocCipherException
+from edhoc.exceptions import EdhocException
 from edhoc.messages import MessageOne, MessageError, MessageThree, EdhocMessage, MessageTwo
 from edhoc.roles.edhoc import EdhocRole, Key, CoseHeaderMap, CBOR
 
@@ -46,10 +46,10 @@ class Responder(EdhocRole):
     @property
     def cipher_suite(self) -> CipherSuite:
         if self.msg_1 is None:
-            raise AttributeError("Message 1 not received. Cannot derive selected cipher suite.")
+            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
         else:
             if not self._verify_cipher_selection(self.msg_1.selected_cipher, self.msg_1.cipher_suites):
-                raise EdhocCipherException("Invalid cipher suite setup")
+                raise EdhocException("Invalid cipher suite setup")
             return CipherSuite(self.msg_1.selected_cipher)
 
     @property
@@ -57,7 +57,7 @@ class Responder(EdhocRole):
         """ Get the EDHOC correlation value for the method_corr parameter in EDHOC message 1. """
 
         if self.msg_1 is None:
-            raise ValueError()
+            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
 
         return self.msg_1.method_corr % 4
 
@@ -66,7 +66,7 @@ class Responder(EdhocRole):
         """ Get the EDHOC method value for the method_corr parameter in EDHOC message 1. """
 
         if self.msg_1 is None:
-            raise ValueError()
+            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
 
         return (self.msg_1.method_corr - self.corr) // 4
 
