@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey, X448PrivateKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
 
-from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation
+from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation, EdhocState
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage
 
 Key = Union[EC2, OKP]
@@ -54,8 +54,8 @@ class EdhocRole(metaclass=ABCMeta):
         self.cred, self._local_authkey = self._parse_credentials(cred)
         self.cred_id = cred_id
         self.auth_key = auth_key
-        self.supported_ciphers = supported_ciphers
-        self.peer_cred, self._remote_authkey = self._parse_credentials(peer_cred)
+        self.supported_ciphers = [c for c in map(int, supported_ciphers)]
+        self._peer_cred, self._remote_authkey = self._parse_credentials(peer_cred)
         self._conn_id = conn_id
         self.aad1_cb = aad1_cb
         self.aad2_cb = aad2_cb
@@ -66,6 +66,8 @@ class EdhocRole(metaclass=ABCMeta):
         self.msg_1: Optional[MessageOne] = None
         self.msg_2: Optional[MessageTwo] = None
         self.msg_3: Optional[MessageThree] = None
+
+        self._internal_state = EdhocState.EDHOC_WAIT
 
     @functools.lru_cache()
     def transcript(self, hash_func: Callable, hash_input: bytes) -> bytes:
@@ -129,6 +131,17 @@ class EdhocRole(metaclass=ABCMeta):
 
         secret = d.exchange(x)
         return secret
+
+    @property
+    def edhoc_state(self):
+        return self._internal_state
+
+    @property
+    @abstractmethod
+    def peer_cred(self):
+        """ Returns the peer's credentials, e.g. certificate. """
+
+        raise NotImplementedError()
 
     @property
     @abstractmethod
@@ -388,15 +401,17 @@ class EdhocRole(metaclass=ABCMeta):
             self.ephemeral_key = EC2.generate_key(chosen_suite.dh_curve)
 
     @staticmethod
-    def _parse_credentials(cred: CBOR) -> Tuple[Optional[CBOR], Optional[Key]]:
-        if cred is None:
-            return None, None
+    def _parse_credentials(cred: Union[CBOR, Callable]) -> Tuple[Union[CBOR, Callable], Union[Key, Callable]]:
+        if isinstance(cred, bytes):
 
-        if isinstance(cbor2.loads(cred), dict):
-            # this is an RPK
-            cose_key = CoseKey.decode(cbor2.loads(cred))
-            return cred, cose_key
+            if isinstance(cbor2.loads(cred), dict):
+                # this is an RPK
+                cose_key = CoseKey.decode(cbor2.loads(cred))
+                return cred, cose_key
 
+            else:
+                # TODO: update when test vectors for CBOR encoded certificates are correct
+                return cred, None
         else:
-            # TODO: update when test vectors for CBOR encoded certificates are correct
-            return cred, None
+
+            return cred, cred

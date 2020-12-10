@@ -1,12 +1,13 @@
 import functools
+import os
 from typing import List, Callable, Optional, Union, Tuple
 
 import cbor2
 from cose import Enc0Message, KeyOps, OKP, CoseHeaderKeys
 from cose.attributes.algorithms import config as config_cose, CoseEllipticCurves
 
-from edhoc.definitions import CipherSuite, Correlation
-from edhoc.exceptions import EdhocCipherException
+from edhoc.definitions import CipherSuite, Correlation, EdhocState
+from edhoc.exceptions import EdhocException
 from edhoc.messages import MessageOne, MessageError, MessageThree, EdhocMessage, MessageTwo
 from edhoc.roles.edhoc import EdhocRole, Key, CoseHeaderMap, CBOR
 
@@ -17,8 +18,8 @@ class Responder(EdhocRole):
                  cred_idr: CoseHeaderMap,
                  auth_key: Key,
                  supported_ciphers: List[CipherSuite],
-                 conn_idr: bytes,
                  peer_cred: Optional[Union[Callable[..., bytes], CBOR]],
+                 conn_idr: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
                  aad3_cb: Optional[Callable[..., bytes]] = None,
@@ -38,6 +39,9 @@ class Responder(EdhocRole):
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
 
+        if conn_idr is None:
+            conn_idr = os.urandom(1)
+
         super().__init__(cred, cred_idr, auth_key, supported_ciphers, conn_idr, peer_cred, aad1_cb, aad2_cb, aad3_cb,
                          ephemeral_key)
 
@@ -46,10 +50,10 @@ class Responder(EdhocRole):
     @property
     def cipher_suite(self) -> CipherSuite:
         if self.msg_1 is None:
-            raise AttributeError("Message 1 not received. Cannot derive selected cipher suite.")
+            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
         else:
             if not self._verify_cipher_selection(self.msg_1.selected_cipher, self.msg_1.cipher_suites):
-                raise EdhocCipherException("Invalid cipher suite setup")
+                raise EdhocException("Invalid cipher suite setup")
             return CipherSuite(self.msg_1.selected_cipher)
 
     @property
@@ -57,7 +61,7 @@ class Responder(EdhocRole):
         """ Get the EDHOC correlation value for the method_corr parameter in EDHOC message 1. """
 
         if self.msg_1 is None:
-            raise ValueError()
+            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
 
         return self.msg_1.method_corr % 4
 
@@ -66,7 +70,7 @@ class Responder(EdhocRole):
         """ Get the EDHOC method value for the method_corr parameter in EDHOC message 1. """
 
         if self.msg_1 is None:
-            raise ValueError()
+            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
 
         return (self.msg_1.method_corr - self.corr) // 4
 
@@ -121,7 +125,7 @@ class Responder(EdhocRole):
         if self.cipher_suite.dh_curve in [CoseEllipticCurves.X448, CoseEllipticCurves.X25519]:
             return OKP(x=self.g_y, crv=self.cipher_suite.dh_curve)
         else:
-            # TODO:
+            # TODO: implement NIST curves
             pass
 
     @property
@@ -131,7 +135,7 @@ class Responder(EdhocRole):
         if self.cipher_suite.dh_curve in [CoseEllipticCurves.X448, CoseEllipticCurves.X25519]:
             return OKP(x=self.g_x, crv=self.cipher_suite.dh_curve)
         else:
-            # TODO:
+            # TODO: implement NIST curves
             pass
 
     @property
@@ -140,7 +144,17 @@ class Responder(EdhocRole):
 
     @property
     def remote_authkey(self) -> Key:
-        return self._remote_authkey
+        if hasattr(self._remote_authkey, '__call__'):
+            return self._remote_authkey(self.cred_idi)
+        else:
+            return self._remote_authkey
+
+    @property
+    def peer_cred(self):
+        if hasattr(self._peer_cred, '__call__'):
+            self._peer_cred(self.cred_idi)
+        else:
+            return self._peer_cred
 
     def signature_or_mac2(self, mac_2: bytes):
         return self._signature_or_mac(mac_2, self._th2_input, self.aad2_cb)
@@ -156,7 +170,11 @@ class Responder(EdhocRole):
 
         self.msg_1 = MessageOne.decode(message_one)
 
+        self._internal_state = EdhocState.MSG_1_RCVD
+
         if not self._verify_cipher_selection(self.msg_1.selected_cipher, self.msg_1.cipher_suites):
+            self._internal_state = EdhocState.EDHOC_FAIL
+
             return MessageError(err_msg="").encode()
 
         if self.aad1_cb is not None:
@@ -165,6 +183,8 @@ class Responder(EdhocRole):
         self._generate_ephemeral_key()
 
         self.msg_2 = MessageTwo(self.g_y, self.conn_idr, self.ciphertext_2, self.conn_idi)
+
+        self._internal_state = EdhocState.MSG_2_SENT
         return self.msg_2.encode()
 
     def finalize(self, message_three: bytes) -> Union[Tuple[bytes, bytes, int, int], bytes]:
@@ -177,6 +197,9 @@ class Responder(EdhocRole):
         """
 
         self.msg_3 = MessageThree.decode(message_three)
+
+        self._internal_state = EdhocState.MSG_3_RCVD
+
         decoded = EdhocMessage.decode(self._decrypt(self.msg_3.ciphertext))
 
         self._cred_idi = decoded[0]
@@ -193,6 +216,8 @@ class Responder(EdhocRole):
 
         app_aead = self.cipher_suite.app_aead
         app_hash = self.cipher_suite.app_hash
+
+        self._internal_state = EdhocState.EDHOC_SUCC
 
         return self.msg_1.conn_idi, self._conn_id, app_aead.id, app_hash.id
 

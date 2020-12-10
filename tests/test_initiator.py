@@ -1,3 +1,4 @@
+import pytest
 from cose import OKP
 
 from edhoc.definitions import CipherSuite
@@ -13,6 +14,7 @@ def test_initiator_message1(initiator, test_vectors):
     assert initiator.create_message_one() == test_vectors['I']['message_1']
 
 
+@pytest.mark.xfail(raises=AttributeError, reason='Invalid CBOR certificates')
 def test_initiator_message3(initiator, test_vectors):
     initiator.msg_1 = MessageOne.decode(test_vectors['I']['message_1'])
     initiator.msg_2 = MessageTwo.decode(test_vectors['R']['message_2'])
@@ -55,6 +57,7 @@ def test_initiator_message3(initiator, test_vectors):
     assert initiator.create_message_three(test_vectors['R']['message_2']) == test_vectors['I']['message_3']
 
 
+@pytest.mark.xfail(raises=AttributeError, reason='Invalid CBOR certificates')
 def test_initiator_finalize(initiator, test_vectors):
     initiator.msg_1 = MessageOne.decode(initiator.create_message_one())
     initiator.msg_2 = MessageTwo.decode(test_vectors['R']['message_2'])

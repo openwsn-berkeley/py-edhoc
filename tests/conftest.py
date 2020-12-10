@@ -19,7 +19,7 @@ test_vector_path = [os.path.join(path_tests, file) for file in os.listdir(path_t
 def pytest_generate_tests(metafunc):
     if "test_vectors" in metafunc.fixturenames:
         test_suite = edhoc_test_vectors()
-        ids = ["test_vectors_" + str(i) for i in range(1, len(test_suite) + 1)]
+        ids = ["test_vector_" + str(v["vector"]) for v in test_suite]
         metafunc.parametrize("test_vectors", test_suite, ids=ids)
 
 

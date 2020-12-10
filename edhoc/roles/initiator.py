@@ -1,11 +1,12 @@
 import functools
+import os
 from typing import List, Optional, Callable, Union, Tuple
 
 import cbor2
 from cose import KeyOps, Enc0Message, OKP, CoseHeaderKeys
 from cose.attributes.algorithms import config as config_cose, CoseEllipticCurves
 
-from edhoc.definitions import CipherSuite, Method, Correlation
+from edhoc.definitions import CipherSuite, Method, Correlation, EdhocState
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage, MessageError
 from edhoc.roles.edhoc import EdhocRole, CoseHeaderMap, Key
 
@@ -20,8 +21,8 @@ class Initiator(EdhocRole):
                  auth_key: Key,
                  selected_cipher: CipherSuite,
                  supported_ciphers: List[CipherSuite],
-                 conn_idi: bytes,
                  peer_cred: Optional[Union[Callable[..., bytes], bytes]],
+                 conn_idi: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
                  aad3_cb: Optional[Callable[..., bytes]] = None,
@@ -43,6 +44,10 @@ class Initiator(EdhocRole):
         :param aad3_cb: A callback to pass received additional data to the application protocol.
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
+
+        if conn_idi is None:
+            conn_idi = os.urandom(1)
+
         super().__init__(cred, cred_idi, auth_key, supported_ciphers, conn_idi, peer_cred, aad1_cb, aad2_cb, aad3_cb,
                          ephemeral_key)
 
@@ -127,7 +132,17 @@ class Initiator(EdhocRole):
 
     @property
     def remote_authkey(self) -> Key:
-        return self._remote_authkey
+        if hasattr(self._remote_authkey, '__call__'):
+            return self._remote_authkey(self.cred_idr)
+        else:
+            return self._remote_authkey
+
+    @property
+    def peer_cred(self):
+        if hasattr(self._peer_cred, '__call__'):
+            self._peer_cred(self.cred_idr)
+        else:
+            return self._peer_cred
 
     def signature_or_mac3(self, mac_3: bytes):
         return self._signature_or_mac(mac_3, self._th3_input, self.aad3_cb)
@@ -143,15 +158,22 @@ class Initiator(EdhocRole):
             conn_idi=self._conn_id,
         )
 
+        self._internal_state = EdhocState.MSG_1_SENT
+
         return self.msg_1.encode()
 
     def create_message_three(self, message_two: bytes):
+
         self.msg_2 = MessageTwo.decode(message_two)
+
+        self._internal_state = EdhocState.MSG_2_RCVD
+
         decoded = EdhocMessage.decode(self._decrypt(self.msg_2.ciphertext))
 
         self._cred_idr = decoded[0]
 
         if not self._verify_signature(signature=decoded[1]):
+            self._internal_state = EdhocState.EDHOC_FAIL
             return MessageError(err_msg='').encode()
 
         try:
@@ -162,6 +184,9 @@ class Initiator(EdhocRole):
             pass
 
         self.msg_3 = MessageThree(self.ciphertext_3, self.conn_idr)
+
+        self._internal_state = EdhocState.MSG_3_SENT
+
         return self.msg_3.encode()
 
     def finalize(self) -> Tuple[bytes, bytes, int, int]:
@@ -171,6 +196,8 @@ class Initiator(EdhocRole):
         :return: A 4-tuple containing the initiator and responder's connection identifiers and the application AEAD and\
          hash algorithms.
         """
+
+        self._internal_state = EdhocState.EDHOC_SUCC
 
         app_aead = self.cipher_suite.app_aead
         app_hash = self.cipher_suite.app_hash

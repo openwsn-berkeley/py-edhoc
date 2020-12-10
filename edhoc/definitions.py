@@ -6,6 +6,18 @@ from cose import CoseAlgorithms, CoseEllipticCurves
 from dataclasses import dataclass
 
 
+class EdhocState(IntEnum):
+    EDHOC_WAIT = 0
+    MSG_1_SENT = 1
+    MSG_1_RCVD = 2
+    MSG_2_SENT = 3
+    MSG_2_RCVD = 4
+    MSG_3_SENT = 5
+    MSG_3_RCVD = 6
+    EDHOC_SUCC = 7
+    EDHOC_FAIL = 8
+
+
 @unique
 class Method(IntEnum):
     """ Enumerations for the EHDOC method types. """
