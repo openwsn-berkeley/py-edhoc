@@ -1,4 +1,5 @@
 import functools
+import os
 from typing import List, Optional, Callable, Union, Tuple
 
 import cbor2
@@ -20,8 +21,8 @@ class Initiator(EdhocRole):
                  auth_key: Key,
                  selected_cipher: CipherSuite,
                  supported_ciphers: List[CipherSuite],
-                 conn_idi: bytes,
                  peer_cred: Optional[Union[Callable[..., bytes], bytes]],
+                 conn_idi: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
                  aad3_cb: Optional[Callable[..., bytes]] = None,
@@ -43,6 +44,10 @@ class Initiator(EdhocRole):
         :param aad3_cb: A callback to pass received additional data to the application protocol.
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
+
+        if conn_idi is None:
+            conn_idi = os.urandom(1)
+
         super().__init__(cred, cred_idi, auth_key, supported_ciphers, conn_idi, peer_cred, aad1_cb, aad2_cb, aad3_cb,
                          ephemeral_key)
 
@@ -127,7 +132,17 @@ class Initiator(EdhocRole):
 
     @property
     def remote_authkey(self) -> Key:
-        return self._remote_authkey
+        if hasattr(self._remote_authkey, '__call__'):
+            return self._remote_authkey(self.cred_idr)
+        else:
+            return self._remote_authkey
+
+    @property
+    def peer_cred(self):
+        if hasattr(self._peer_cred, '__call__'):
+            self._peer_cred(self.cred_idr)
+        else:
+            return self._peer_cred
 
     def signature_or_mac3(self, mac_3: bytes):
         return self._signature_or_mac(mac_3, self._th3_input, self.aad3_cb)

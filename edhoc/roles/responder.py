@@ -1,4 +1,5 @@
 import functools
+import os
 from typing import List, Callable, Optional, Union, Tuple
 
 import cbor2
@@ -17,8 +18,8 @@ class Responder(EdhocRole):
                  cred_idr: CoseHeaderMap,
                  auth_key: Key,
                  supported_ciphers: List[CipherSuite],
-                 conn_idr: bytes,
                  peer_cred: Optional[Union[Callable[..., bytes], CBOR]],
+                 conn_idr: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
                  aad3_cb: Optional[Callable[..., bytes]] = None,
@@ -37,6 +38,9 @@ class Responder(EdhocRole):
         :param aad3_cb: A callback to pass received additional data to the application protocol.
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
+
+        if conn_idr is None:
+            conn_idr = os.urandom(1)
 
         super().__init__(cred, cred_idr, auth_key, supported_ciphers, conn_idr, peer_cred, aad1_cb, aad2_cb, aad3_cb,
                          ephemeral_key)
@@ -121,7 +125,7 @@ class Responder(EdhocRole):
         if self.cipher_suite.dh_curve in [CoseEllipticCurves.X448, CoseEllipticCurves.X25519]:
             return OKP(x=self.g_y, crv=self.cipher_suite.dh_curve)
         else:
-            # TODO:
+            # TODO: implement NIST curves
             pass
 
     @property
@@ -131,7 +135,7 @@ class Responder(EdhocRole):
         if self.cipher_suite.dh_curve in [CoseEllipticCurves.X448, CoseEllipticCurves.X25519]:
             return OKP(x=self.g_x, crv=self.cipher_suite.dh_curve)
         else:
-            # TODO:
+            # TODO: implement NIST curves
             pass
 
     @property
@@ -140,7 +144,17 @@ class Responder(EdhocRole):
 
     @property
     def remote_authkey(self) -> Key:
-        return self._remote_authkey
+        if hasattr(self._remote_authkey, '__call__'):
+            return self._remote_authkey(self.cred_idi)
+        else:
+            return self._remote_authkey
+
+    @property
+    def peer_cred(self):
+        if hasattr(self._peer_cred, '__call__'):
+            self._peer_cred(self.cred_idi)
+        else:
+            return self._peer_cred
 
     def signature_or_mac2(self, mac_2: bytes):
         return self._signature_or_mac(mac_2, self._th2_input, self.aad2_cb)
