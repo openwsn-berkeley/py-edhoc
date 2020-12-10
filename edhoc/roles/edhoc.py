@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey, X448PrivateKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
 
-from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation
+from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation, EdhocState
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage
 
 Key = Union[EC2, OKP]
@@ -66,6 +66,8 @@ class EdhocRole(metaclass=ABCMeta):
         self.msg_1: Optional[MessageOne] = None
         self.msg_2: Optional[MessageTwo] = None
         self.msg_3: Optional[MessageThree] = None
+
+        self._internal_state = EdhocState.EDHOC_WAIT
 
     @functools.lru_cache()
     def transcript(self, hash_func: Callable, hash_input: bytes) -> bytes:
@@ -129,6 +131,10 @@ class EdhocRole(metaclass=ABCMeta):
 
         secret = d.exchange(x)
         return secret
+
+    @property
+    def edhoc_state(self):
+        return self._internal_state
 
     @property
     @abstractmethod

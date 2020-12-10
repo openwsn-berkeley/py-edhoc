@@ -5,7 +5,7 @@ import cbor2
 from cose import Enc0Message, KeyOps, OKP, CoseHeaderKeys
 from cose.attributes.algorithms import config as config_cose, CoseEllipticCurves
 
-from edhoc.definitions import CipherSuite, Correlation
+from edhoc.definitions import CipherSuite, Correlation, EdhocState
 from edhoc.exceptions import EdhocCipherException
 from edhoc.messages import MessageOne, MessageError, MessageThree, EdhocMessage, MessageTwo
 from edhoc.roles.edhoc import EdhocRole, Key, CoseHeaderMap, CBOR
@@ -156,7 +156,11 @@ class Responder(EdhocRole):
 
         self.msg_1 = MessageOne.decode(message_one)
 
+        self._internal_state = EdhocState.MSG_1_RCVD
+
         if not self._verify_cipher_selection(self.msg_1.selected_cipher, self.msg_1.cipher_suites):
+            self._internal_state = EdhocState.EDHOC_FAIL
+
             return MessageError(err_msg="").encode()
 
         if self.aad1_cb is not None:
@@ -165,6 +169,8 @@ class Responder(EdhocRole):
         self._generate_ephemeral_key()
 
         self.msg_2 = MessageTwo(self.g_y, self.conn_idr, self.ciphertext_2, self.conn_idi)
+
+        self._internal_state = EdhocState.MSG_2_SENT
         return self.msg_2.encode()
 
     def finalize(self, message_three: bytes) -> Union[Tuple[bytes, bytes, int, int], bytes]:
@@ -177,6 +183,9 @@ class Responder(EdhocRole):
         """
 
         self.msg_3 = MessageThree.decode(message_three)
+
+        self._internal_state = EdhocState.MSG_3_RCVD
+
         decoded = EdhocMessage.decode(self._decrypt(self.msg_3.ciphertext))
 
         self._cred_idi = decoded[0]
@@ -193,6 +202,8 @@ class Responder(EdhocRole):
 
         app_aead = self.cipher_suite.app_aead
         app_hash = self.cipher_suite.app_hash
+
+        self._internal_state = EdhocState.EDHOC_SUCC
 
         return self.msg_1.conn_idi, self._conn_id, app_aead.id, app_hash.id
 
