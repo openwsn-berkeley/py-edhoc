@@ -136,6 +136,10 @@ class EdhocRole(metaclass=ABCMeta):
     def edhoc_state(self):
         return self._internal_state
 
+    def exporter(self, label: str, length: int):
+        hash_func = config_cose(self.cipher_suite.hash).hash
+        return self._hkdf_expand(length, label, self._prk4x3m, self.transcript(hash_func, self._th4_input))
+
     @property
     @abstractmethod
     def peer_cred(self):
@@ -259,6 +263,13 @@ class EdhocRole(metaclass=ABCMeta):
 
         input_th = [self.transcript(hash_func, self._th2_input), self.msg_2.ciphertext]
         return b''.join([cbor2.dumps(part) for part in input_th] + [self.data_3])
+
+    @property
+    def _th4_input(self) -> CBOR:
+        hash_func = config_cose(self.cipher_suite.hash).hash
+
+        input_th = [self.transcript(hash_func, self._th3_input), self.msg_3.ciphertext]
+        return b''.join([cbor2.dumps(part) for part in input_th])
 
     @property
     @functools.lru_cache()
