@@ -14,7 +14,7 @@ from edhoc.roles.edhoc import CoseHeaderMap
 from edhoc.roles.responder import Responder
 
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("coap-server").setLevel(logging.DEBUG)
+logging.getLogger("coap-server").setLevel(logging.INFO)
 
 _msg_2 = b"582071a3d599c21da18902a1aea810b2b6382ccd8d5f9bf0195281754c5ebcaf301e13585099d53801a725bfd6a4e71d0484b755e" \
          b"c383df77a916ec0dbc02bba7c21a200807b4f585f728b671ad678a43aacd33b78ebd566cd004fc6f1d406f01d9704e705b21552a9" \
@@ -42,23 +42,20 @@ class EdhocResponder(resource.Resource):
         super().__init__()
         # test with static connection identifier and static ephemeral key
 
-        ephemeral_key = OKP(
+        self.ephemeral_key = OKP(
             crv=CoseEllipticCurves.X25519,
             x=unhexlify("71a3d599c21da18902a1aea810b2b6382ccd8d5f9bf0195281754c5ebcaf301e"),
             d=unhexlify("fd8cd877c9ea386e6af34ff7e606c4b64ca831c8ba33134fd4cd7167cabaecda"))
 
-        supported = [CipherSuite.SUITE_0, CipherSuite.SUITE_1, CipherSuite.SUITE_2, CipherSuite.SUITE_3]
+        self.cred_idr = cred_idr
+        self.cred = cred
+        self.auth_key = auth_key
+        self.supported = [CipherSuite.SUITE_0, CipherSuite.SUITE_1, CipherSuite.SUITE_2, CipherSuite.SUITE_3]
+
+        self.resp = self.create_responder()
 
         with open(self.cred_store, 'rb') as h:
             self.credentials_storage = pickle.load(h)
-
-        self.resp = Responder(conn_idr=unhexlify(b'2b'),
-                              cred_idr=cred_idr,
-                              auth_key=auth_key,
-                              cred=cred,
-                              peer_cred=self.get_peer_cred,
-                              supported_ciphers=supported,
-                              ephemeral_key=ephemeral_key)
 
     def get_peer_cred(self, cred_id: CoseHeaderMap):
         identifier = int.from_bytes(cred_id[CoseHeaderKeys.X5_T][1], byteorder="big")
@@ -67,18 +64,45 @@ class EdhocResponder(resource.Resource):
         except KeyError:
             return None
 
+    def create_responder(self):
+        return Responder(conn_idr=unhexlify(b'2b'),
+                         cred_idr=self.cred_idr,
+                         auth_key=self.auth_key,
+                         cred=self.cred,
+                         peer_cred=self.get_peer_cred,
+                         supported_ciphers=self.supported,
+                         ephemeral_key=self.ephemeral_key)
+
     async def render_post(self, request):
-        logging.info("POST edhoc message %s", request.payload)
 
         if self.resp.edhoc_state == EdhocState.EDHOC_WAIT:
+
+            logging.info("POST (%s)  %s", self.resp.edhoc_state, request.payload)
+
             msg_2 = self.resp.create_message_two(request.payload)
             # assert msg_2 == unhexlify(_msg_2)
+
+            logging.info("CHANGED (%s)  %s", self.resp.edhoc_state, msg_2)
+
             return aiocoap.Message(code=aiocoap.Code.CHANGED, payload=msg_2)
 
         elif self.resp.edhoc_state == EdhocState.MSG_2_SENT:
-            self.resp.finalize(request.payload)
+            logging.info("POST (%s)  %s", self.resp.edhoc_state, request.payload)
 
-            logging.info("EDHOC KEX SUCCESSFUL")
+            conn_idi, conn_idr, aead, hashf = self.resp.finalize(request.payload)
+
+            logging.info('EDHOC key exchange successfully completed:')
+            logging.info(f" - connection IDr: {conn_idr}")
+            logging.info(f" - connection IDi: {conn_idi}")
+            logging.info(f" - aead algorithm: {CoseAlgorithms(aead)}")
+            logging.info(f" - hash algorithm: {CoseAlgorithms(hashf)}")
+
+            logging.info(f" - OSCORE secret : {self.resp.exporter('OSCORE Master Secret', 16)}")
+            logging.info(f" - OSCORE salt   : {self.resp.exporter('OSCORE Master Salt', 8)}")
+
+            # initialize new Responder object
+            self.resp = self.create_responder()
+
             return aiocoap.Message(code=aiocoap.Code.CHANGED)
         else:
             raise EdhocException(f"Illegal state: {self.resp.edhoc_state}")
@@ -86,10 +110,14 @@ class EdhocResponder(resource.Resource):
 
 def main():
     # Resource tree creation
+    logging.info('Booting CoAP server')
 
     root = resource.Site()
 
+    logging.info("Initializing 'core' resource")
     root.add_resource(['.well-known', 'core'], resource.WKCResource(root.get_resources_as_linkheader))
+
+    logging.info("Initializing 'edhoc' resource")
     root.add_resource(['.well-known', 'edhoc'], EdhocResponder(cred_id, cert, private_key))
 
     asyncio.Task(aiocoap.Context.create_server_context(root))
