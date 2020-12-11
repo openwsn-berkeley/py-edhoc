@@ -5,7 +5,7 @@ from typing import List, Dict, Optional, Callable, Union, Any, Tuple
 
 import cbor2
 from cose import EC2, OKP, CoseEllipticCurves, Sign1Message, KeyOps, SymmetricKey, Enc0Message
-from cose.attributes.algorithms import config as config_cose
+from cose.attributes.algorithms import config as config_cose, CoseAlgorithms
 from cose.exceptions import CoseIllegalCurve
 from cose.keys.cosekey import CoseKey
 from cryptography.hazmat.backends import default_backend
@@ -393,12 +393,14 @@ class EdhocRole(metaclass=ABCMeta):
         if self.ephemeral_key is not None:
             return
 
-        chosen_suite = CipherSuite(self.msg_1.selected_cipher)
+        chosen_suite = CipherSuite(self.cipher_suite)
 
         if chosen_suite.dh_curve in [CoseEllipticCurves.X25519, CoseEllipticCurves.X448]:
-            self.ephemeral_key = OKP.generate_key(chosen_suite.dh_curve)
+            self.ephemeral_key = OKP.generate_key(CoseAlgorithms.DIRECT, curve_type=chosen_suite.dh_curve,
+                                                  key_ops=KeyOps.SIGN)
         else:
-            self.ephemeral_key = EC2.generate_key(chosen_suite.dh_curve)
+            self.ephemeral_key = EC2.generate_key(CoseAlgorithms.DIRECT, curve_type=chosen_suite.dh_curve,
+                                                  key_ops=KeyOps.SIGN)
 
     @staticmethod
     def _parse_credentials(cred: Union[CBOR, Callable]) -> Tuple[Union[CBOR, Callable], Union[Key, Callable]]:
