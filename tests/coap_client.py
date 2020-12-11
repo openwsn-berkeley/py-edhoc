@@ -86,7 +86,16 @@ async def main():
     request = Message(code=Code.POST, payload=msg_3, uri=f"coap://{args.ip}/.well-known/edhoc")
     response = await context.request(request).response
 
-    logging.info('EDHOC key exchange successfully completed')
+    conn_idi, conn_idr, aead, hashf = init.finalize()
+
+    logging.info('EDHOC key exchange successfully completed:')
+    logging.info(f" - connection IDr: {conn_idr}")
+    logging.info(f" - connection IDr: {conn_idi}")
+    logging.info(f" - aead algorithm: {CoseAlgorithms(aead)}")
+    logging.info(f" - hash algorithm: {CoseAlgorithms(hashf)}")
+
+    logging.info(f" - OSCORE secret : {init.exporter('OSCORE Master Secret', 16)}")
+    logging.info(f" - OSCORE salt   : {init.exporter('OSCORE Master Salt', 8)}")
 
 
 def get_peer_cred(cred_id: CoseHeaderMap):

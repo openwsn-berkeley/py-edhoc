@@ -89,9 +89,16 @@ class EdhocResponder(resource.Resource):
         elif self.resp.edhoc_state == EdhocState.MSG_2_SENT:
             logging.info("POST (%s)  %s", self.resp.edhoc_state, request.payload)
 
-            self.resp.finalize(request.payload)
+            conn_idi, conn_idr, aead, hashf = self.resp.finalize(request.payload)
 
-            logging.info("EDHOC key exchange successfully completed")
+            logging.info('EDHOC key exchange successfully completed:')
+            logging.info(f" - connection IDr: {conn_idr}")
+            logging.info(f" - connection IDr: {conn_idi}")
+            logging.info(f" - aead algorithm: {CoseAlgorithms(aead)}")
+            logging.info(f" - hash algorithm: {CoseAlgorithms(hashf)}")
+
+            logging.info(f" - OSCORE secret : {self.resp.exporter('OSCORE Master Secret', 16)}")
+            logging.info(f" - OSCORE salt   : {self.resp.exporter('OSCORE Master Salt', 8)}")
 
             # initialize new Responder object
             self.resp = self.create_responder()
