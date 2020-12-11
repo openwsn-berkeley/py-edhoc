@@ -207,9 +207,11 @@ class Initiator(EdhocRole):
 
     @property
     def ciphertext_3(self):
+        # TODO: resolve magic key and IV lengths
         iv_bytes = self._hkdf3(13, 'IV_3ae', self._prk3e2m)
 
         hash_func = config_cose(self.cipher_suite.hash).hash
+        # TODO: resolve magic key and IV lengths
         cose_key = self._create_cose_key(self._hkdf3, 16, 'K_3ae', self._prk3e2m, KeyOps.ENCRYPT)
 
         # create payload for the COSE_Encrypt0
@@ -244,6 +246,7 @@ class Initiator(EdhocRole):
 
     @property
     def _p_3ae(self):
+        # TODO: resolve magic key and IV lengths
         mac_3 = self._mac(self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
 
         signature = self.signature_or_mac3(mac_3)

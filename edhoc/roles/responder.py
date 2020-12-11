@@ -232,6 +232,7 @@ class Responder(EdhocRole):
     @property
     def _p_2e(self):
         # compute MAC_2
+        # TODO: resolve magic key and IV lengths
         mac_2 = self._mac(self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
 
         # compute the signature_or_mac2
@@ -274,9 +275,11 @@ class Responder(EdhocRole):
         return True
 
     def _decrypt(self, ciphertext: bytes) -> bytes:
+        # TODO: resolve magic key and IV lengths
         iv_bytes = self._hkdf3(13, 'IV_3ae', self._prk3e2m)
 
         hash_func = config_cose(self.cipher_suite.hash).hash
+        # TODO: resolve magic key and IV lengths
         cose_key = self._create_cose_key(self._hkdf3, 16, 'K_3ae', self._prk3e2m, KeyOps.DECRYPT)
 
         th_3 = self.transcript(hash_func, self._th3_input)

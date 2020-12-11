@@ -93,7 +93,7 @@ class EdhocResponder(resource.Resource):
 
             logging.info('EDHOC key exchange successfully completed:')
             logging.info(f" - connection IDr: {conn_idr}")
-            logging.info(f" - connection IDr: {conn_idi}")
+            logging.info(f" - connection IDi: {conn_idi}")
             logging.info(f" - aead algorithm: {CoseAlgorithms(aead)}")
             logging.info(f" - hash algorithm: {CoseAlgorithms(hashf)}")
 
