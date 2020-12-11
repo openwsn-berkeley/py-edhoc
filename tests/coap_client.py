@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 import pickle
@@ -37,14 +38,25 @@ with open("cred_store.pickle", 'rb') as h:
 
 
 async def main():
+    parser = argparse.ArgumentParser()
+
+    # 51.75.194.248
+    parser.add_argument("ip", help="IP address of EDHOC responder", type=str)
+    parser.add_argument("--epk", help="Use a preset ephemeral key", action="store_true")
+
+    args = parser.parse_args()
+
     context = await Context.create_client_context()
 
     supported = [CipherSuite.SUITE_0]
 
-    ephemeral_key = OKP(
-        crv=CoseEllipticCurves.X25519,
-        x=unhexlify("898ff79a02067a16ea1eccb90fa52246f5aa4dd6ec076bba0259d904b7ec8b0c"),
-        d=unhexlify("8f781a095372f85b6d9f6109ae422611734d7dbfa0069a2df2935bb2e053bf35"))
+    if args.epk:
+        ephemeral_key = OKP(
+            crv=CoseEllipticCurves.X25519,
+            x=unhexlify("898ff79a02067a16ea1eccb90fa52246f5aa4dd6ec076bba0259d904b7ec8b0c"),
+            d=unhexlify("8f781a095372f85b6d9f6109ae422611734d7dbfa0069a2df2935bb2e053bf35"))
+    else:
+        ephemeral_key = None
 
     init = Initiator(
         corr=Correlation.CORR_1,
@@ -61,19 +73,20 @@ async def main():
     msg_1 = init.create_message_one()
     # assert msg_1 == unhexlify(b"01005820898ff79a02067a16ea1eccb90fa52246f5aa4dd6ec076bba0259d904b7ec8b0c40")
 
-    request = Message(code=Code.POST, payload=msg_1, uri="coap://localhost/.well-known/edhoc")
+    request = Message(code=Code.POST, payload=msg_1, uri=f"coap://{args.ip}/.well-known/edhoc")
 
+    logging.info("POST (%s)  %s", init.edhoc_state, request.payload)
     response = await context.request(request).response
 
-    logging.info('Result: %s\n%r' % (response.code, response.payload))
-
+    logging.info("CHANGED (%s)  %s", init.edhoc_state, response.payload)
     msg_3 = init.create_message_three(response.payload)
     # assert msg_3 == unhexlify(_msg_3)
 
-    request = Message(code=Code.POST, payload=msg_3, uri="coap://localhost/.well-known/edhoc")
+    logging.info("POST (%s)  %s", init.edhoc_state, request.payload)
+    request = Message(code=Code.POST, payload=msg_3, uri="coap://51.75.194.248/.well-known/edhoc")
     response = await context.request(request).response
 
-    logging.info('Result: %s\n%r' % (response.code, response.payload))
+    logging.info('EDHOC key exchange successfully completed')
 
 
 def get_peer_cred(cred_id: CoseHeaderMap):
