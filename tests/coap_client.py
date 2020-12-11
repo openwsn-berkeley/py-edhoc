@@ -83,7 +83,7 @@ async def main():
     # assert msg_3 == unhexlify(_msg_3)
 
     logging.info("POST (%s)  %s", init.edhoc_state, request.payload)
-    request = Message(code=Code.POST, payload=msg_3, uri="coap://51.75.194.248/.well-known/edhoc")
+    request = Message(code=Code.POST, payload=msg_3, uri=f"coap://{args.ip}/.well-known/edhoc")
     response = await context.request(request).response
 
     logging.info('EDHOC key exchange successfully completed')
