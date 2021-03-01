@@ -119,8 +119,7 @@ class MessageOne(EdhocMessage):
         output = f'<MessageOne: [{self.method_corr}, {self.selected_cipher} | {self.cipher_suites}, ' \
                  f'{EdhocMessage._truncate(self.g_x)}, {hexlify(self.conn_idi)}'
         if self.aad1 != b'':
-            output += [f'{hexlify(self.aad1)}]>']
-        else:
-            output += [']>']
+            output += f'{hexlify(self.aad1)}'
+        output += ']>'
 
         return output
