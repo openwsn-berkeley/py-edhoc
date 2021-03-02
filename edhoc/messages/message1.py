@@ -3,7 +3,7 @@ from typing import List, TYPE_CHECKING, Optional
 
 import cbor2
 
-from edhoc.exceptions import EdhocException
+from edhoc.exceptions import EdhocInvalidMessage
 from edhoc.messages.base import EdhocMessage
 
 if TYPE_CHECKING:
@@ -38,7 +38,7 @@ class MessageOne(EdhocMessage):
             selected_cipher = decoded[cls.CIPHERS][0]
             supported_ciphers = decoded[cls.CIPHERS][1:]
         else:
-            raise EdhocException("Failed to decode bytes as MessageOne")
+            raise EdhocInvalidMessage("Failed to decode bytes as MessageOne")
 
         g_x = decoded[cls.G_X]
 
@@ -119,8 +119,7 @@ class MessageOne(EdhocMessage):
         output = f'<MessageOne: [{self.method_corr}, {self.selected_cipher} | {self.cipher_suites}, ' \
                  f'{EdhocMessage._truncate(self.g_x)}, {hexlify(self.conn_idi)}'
         if self.aad1 != b'':
-            output += [f'{hexlify(self.aad1)}]>']
-        else:
-            output += [']>']
+            output += f'{hexlify(self.aad1)}'
+        output += ']>'
 
         return output
