@@ -174,7 +174,7 @@ class Initiator(EdhocRole):
 
         if not self._verify_signature(signature=decoded[1]):
             self._internal_state = EdhocState.EDHOC_FAIL
-            return MessageError(err_msg='').encode()
+            return MessageError(err_msg='Signature verification failed').encode()
 
         try:
             ad_2 = decoded[2]

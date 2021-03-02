@@ -16,5 +16,13 @@ class MessageError(EdhocMessage):
         self.conn_id = conn_id
         self.suites_r = suites_r
 
+    def __repr__(self):
+        return "<%s: %s on connection ID %r%s>" % (
+                type(self).__name__,
+                self.err_msg,
+                self.conn_id,
+                " with suites %r" % self.suites_r if self.suites_r else ""
+                )
+
     def encode(self):
-        pass
+        raise NotImplementedError("Can not encode %r yet" % self)
