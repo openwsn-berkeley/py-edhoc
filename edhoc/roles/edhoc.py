@@ -148,8 +148,7 @@ class EdhocRole(metaclass=ABCMeta):
         return self._internal_state
 
     def exporter(self, label: str, length: int):
-        hash_func = self.cipher_suite.hash
-        return self._hkdf_expand(length, label, self._prk4x3m, self.transcript(hash_func, self._th4_input))
+        return self._hkdf_expand(length, label, self._prk4x3m, self._th4_input)
 
     @property
     @abstractmethod
