@@ -7,7 +7,7 @@ Currently the protocol is still in [draft](https://datatracker.ietf.org/doc/draf
 
 The repository provides an implementation of:
   * <s>[https://datatracker.ietf.org/doc/html/draft-ietf-lake-edhoc-01](https://datatracker.ietf.org/doc/html/draft-ietf-lake-edhoc-01)</s>
-  * [https://datatracker.ietf.org/doc/html/draft-ietf-lake-edhoc-02](https://datatracker.ietf.org/doc/html/draft-ietf-lake-edhoc-02)
+  * [https://datatracker.ietf.org/doc/html/draft-ietf-lake-edhoc-05](https://datatracker.ietf.org/doc/html/draft-ietf-lake-edhoc-05)
   
 ## Installation
 
