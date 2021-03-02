@@ -2,6 +2,7 @@ import asyncio
 import logging
 import pickle
 from binascii import unhexlify
+from pathlib import Path
 
 import aiocoap
 import aiocoap.resource as resource
@@ -36,7 +37,7 @@ cred_id = cbor2.loads(unhexlify(b"a11822822e48fc79990f2431a3f5"))
 
 
 class EdhocResponder(resource.Resource):
-    cred_store = "cred_store.pickle"
+    cred_store = Path(__file__).parent / "cred_store.pickle"
 
     def __init__(self, cred_idr, cred, auth_key):
         super().__init__()

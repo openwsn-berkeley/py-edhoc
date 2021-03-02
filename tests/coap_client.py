@@ -3,6 +3,7 @@ import asyncio
 import logging
 import pickle
 from binascii import unhexlify
+from pathlib import Path
 
 import cbor2
 from aiocoap import Context, Message
@@ -33,7 +34,7 @@ cert = unhexlify(cert)
 
 cred_id = cbor2.loads(unhexlify(b"a11822822e485b786988439ebcf2"))
 
-with open("cred_store.pickle", 'rb') as h:
+with (Path(__file__).parent / "cred_store.pickle").open('rb') as h:
     credentials_storage = pickle.load(h)
 
 
