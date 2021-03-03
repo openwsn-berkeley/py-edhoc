@@ -1,5 +1,5 @@
 # py-edhoc:snake: --  Ephemeral Diffie-Hellman Over COSE
-![Python package](https://github.com/TimothyClaeys/py-edhoc/workflows/Python%20package/badge.svg)
+![Python package](https://github.com/openwsn-berkeley/py-edhoc/workflows/Python%20package/badge.svg)
 
 This project provides a Python implementation of the EDHOC key exchange protocol for constrained devices. 
 Currently the protocol is still in [draft](https://datatracker.ietf.org/doc/draft-ietf-lake-edhoc/) status at the IETF.
