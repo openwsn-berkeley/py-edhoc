@@ -1,6 +1,6 @@
 cbor2>=5.2.0
 cryptography>=3.2.1
-cose>=0.9.dev2
+cose==0.9.dev2
 aenum
 aiocoap
 

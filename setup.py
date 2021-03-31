@@ -25,7 +25,7 @@ with open(os.path.join(this_directory, 'README.md')) as f:
 
 setup(
     name='edhoc',
-    version='0.2.dev2',
+    version='0.2.dev3',
     packages=find_packages(exclude=['tests', 'docs']),
     python_requires='>=3.6',
     include_package_data=True,
