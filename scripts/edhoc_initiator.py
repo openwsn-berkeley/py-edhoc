@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 import pickle
+import sys
 from binascii import unhexlify
 from pathlib import Path
 
@@ -106,6 +107,11 @@ def get_peer_cred(cred_id: CoseHeaderMap):
     except KeyError:
         return None
 
+def sync_main():
+    try:
+        asyncio.get_event_loop().run_until_complete(main())
+    except KeyboardInterrupt:
+            sys.exit(3)
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(main())
+    sync_main()

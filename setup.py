@@ -29,6 +29,12 @@ setup(
     packages=find_packages(exclude=['tests', 'docs']),
     python_requires='>=3.6',
     include_package_data=True,
+    entry_points={
+        'console_scripts': [
+            'edhoc-responder = scripts.edhoc_responder:main',
+            'edhoc-initiator = scripts.edhoc_initiator:sync_main',
+        ],
+    },
     package_data={
         '': [
             'requirements.txt',
