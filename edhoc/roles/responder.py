@@ -251,7 +251,7 @@ class Responder(EdhocRole):
     def _p_2e(self):
         # compute MAC_2
         # TODO: resolve magic key and IV lengths
-        mac_2 = self._mac(self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
+        mac_2 = self._mac(self.cred_idr, self.cred, self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
 
         # compute the signature_or_mac2
         signature = self.signature_or_mac2(mac_2)

@@ -24,6 +24,8 @@ def test_responder_message2(responder, test_vectors):
     assert responder._hkdf2(16, 'K_2m', prk=responder._prk3e2m) == test_vectors['S']['k_2m']
     assert responder._hkdf2(13, 'IV_2m', prk=responder._prk3e2m) == test_vectors['S']['iv_2m']
     assert responder._mac(
+        responder.cred_idr,
+        responder.cred,
         responder._hkdf2,
         'K_2m',
         16,

@@ -266,7 +266,7 @@ class Initiator(EdhocRole):
     @property
     def _p_3ae(self):
         # TODO: resolve magic key and IV lengths
-        mac_3 = self._mac(self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
+        mac_3 = self._mac(self.cred_idi, self.cred, self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
 
         signature = self.signature_or_mac3(mac_3)
 

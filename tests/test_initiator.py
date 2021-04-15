@@ -38,6 +38,8 @@ def test_initiator_message3(initiator, test_vectors):
     assert initiator._hkdf3(16, 'K_3m', initiator._prk4x3m) == test_vectors['S']['k_3m']
     assert initiator._hkdf3(13, 'IV_3m', initiator._prk4x3m) == test_vectors['S']['iv_3m']
     assert initiator._mac(
+        initiator.cred_idi,
+        initiator.cred,
         initiator._hkdf3,
         'K_3m',
         16,
