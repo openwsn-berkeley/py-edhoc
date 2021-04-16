@@ -33,7 +33,6 @@ class Method(IntEnum):
 
 @unique
 class Correlation(IntEnum):
-    CORR_UNKNOWN = -1
     CORR_0 = 0
     CORR_1 = 1
     CORR_2 = 2

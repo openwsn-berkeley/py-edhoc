@@ -265,7 +265,7 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     def _th2_input(self) -> CBOR:
-        return b''.join([self.msg_1.encode(), self.data_2])
+        return b''.join([self.msg_1.encode(self.corr), self.data_2])
 
     @property
     def _th3_input(self) -> CBOR:
