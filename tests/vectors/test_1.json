@@ -1,7 +1,7 @@
 {
   "vector": 1,
   "I": {
-    "key_type": 0,
+    "cred_type": 0,
     "selected": 0,
     "supported": [
       0
@@ -38,7 +38,7 @@
     "message_3": "1358582d88ff86da47482c0dfa559ac824a4a783d870c9dba47805e8aafbad6974c49646586503fa9bbf3e00012c037eaf56e45e301920839b813a53f6d4c557480f6c797d5b76f0e462f5f57a3db6d2b50c32319f340f4ac5af9a"
   },
   "R": {
-    "key_type": 0,
+    "cred_type": 0,
     "y": "fd8cd877c9ea386e6af34ff7e606c4b64ca831c8ba33134fd4cd7167cabaecda",
     "g_y": "71a3d599c21da18902a1aea810b2b6382ccd8d5f9bf0195281754c5ebcaf301e",
     "conn_id": "2b",

@@ -1,7 +1,7 @@
 {
   "vector": 7,
   "I": {
-    "key_type": 1,
+    "cred_type": 1,
     "selected": 0,
     "supported": [
       0
@@ -40,7 +40,7 @@
     "message_3": "2d523f70e6deda19f55f03dae6ff3abf10f646a6"
   },
   "R": {
-    "key_type": 1,
+    "cred_type": 1,
     "y": "5d896ca585294d92f3fa7bac523c314360c89ff1bed5dbb9e5fd97f5cc2485ed",
     "g_y": "eb41347057bb356da062597d1f89e6b78f75eebadd96c82288f2a06e1669d330",
     "prk_2e": "a83a007bda5192e1f0245713cc29ce2bcebffe991f5bfee215a8b8fcf2805aef",

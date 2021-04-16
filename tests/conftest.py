@@ -5,10 +5,13 @@ from binascii import unhexlify
 from typing import List
 
 import cbor2
-from cose import CoseAlgorithms, OKP, EC2, CoseEllipticCurves
+from cose.algorithms import Es256
+from cose.curves import Ed448, Ed25519, X25519, X448, P256
+from cose.keys import EC2Key, OKPKey, CoseKey
+from cose.keys.keyparam import KpAlg
 from pytest import fixture
 
-from edhoc.definitions import CipherSuite, Method
+from edhoc.definitions import Method, CipherSuite
 from edhoc.roles.initiator import Initiator
 from edhoc.roles.responder import Responder
 
@@ -28,21 +31,21 @@ def edhoc_test_vectors() -> List[dict]:
 
 
 def setup_sign_key(selected_cipher: int, private_bytes: bytes):
-    if CipherSuite(selected_cipher).sign_curve in [CoseEllipticCurves.ED448, CoseEllipticCurves.ED25519]:
-        return OKP(d=private_bytes,
-                   crv=CipherSuite(selected_cipher).sign_curve,
-                   alg=CipherSuite(selected_cipher).sign_alg)
-    elif CipherSuite(selected_cipher).sign_alg == CoseAlgorithms.ES256:
-        return EC2(d=private_bytes, alg=CoseAlgorithms.ES256, crv=CipherSuite(selected_cipher).sign_curve)
+    if CipherSuite.from_id(selected_cipher).sign_curve in [Ed448, Ed25519]:
+        return OKPKey(d=private_bytes,
+                      crv=CipherSuite.from_id(selected_cipher).sign_curve,
+                      optional_params={KpAlg: CipherSuite.from_id(selected_cipher).sign_alg})
+    elif CipherSuite.from_id(selected_cipher).sign_alg == Es256:
+        return EC2Key(d=private_bytes, alg=Es256, crv=CipherSuite.from_id(selected_cipher).sign_curve)
     else:
-        raise ValueError("Illegal signing keys.")
+        raise ValueError("Illegal COSE curve.")
 
 
 def setup_dh_key(selected_cipher: int, private_bytes: bytes):
-    if CipherSuite(selected_cipher).dh_curve in [CoseEllipticCurves.X448, CoseEllipticCurves.X25519]:
-        return OKP(d=private_bytes, crv=CipherSuite(selected_cipher).dh_curve)
-    elif CipherSuite(selected_cipher).dh_curve in [CoseEllipticCurves.P_256]:
-        return EC2(d=private_bytes, crv=CipherSuite(selected_cipher).sign_curve)
+    if CipherSuite.from_id(selected_cipher).dh_curve in [X448, X25519]:
+        return OKPKey(d=private_bytes, crv=CipherSuite.from_id(selected_cipher).dh_curve)
+    elif CipherSuite.from_id(selected_cipher).dh_curve in [P256]:
+        return EC2Key(d=private_bytes, crv=CipherSuite.from_id(selected_cipher).sign_curve)
     else:
         raise ValueError("Illegal DH keys.")
 
@@ -118,44 +121,64 @@ def type_conversion(decoded: dict):
 
 @fixture
 def ephemeral_responder_key(test_vectors):
-    return OKP(
+    return OKPKey(
         x=test_vectors['R']['g_y'],
         d=test_vectors['R']['y'],
-        crv=CipherSuite(test_vectors['I']['selected']).dh_curve)
+        crv=CipherSuite.from_id(test_vectors['I']['selected']).dh_curve)
 
 
 @fixture
 def responder(ephemeral_responder_key, test_vectors):
+    if test_vectors['I']['cred_type'] == 0:
+        local_auth_key = None
+    else:
+        local_auth_key = CoseKey.decode(test_vectors['I']['cred'])
+
+    if test_vectors['R']['cred_type'] == 0:
+        remote_auth_key = None
+    else:
+        remote_auth_key = CoseKey.decode(test_vectors['R']['cred'])
+
     return Responder(
         conn_idr=test_vectors["R"]["conn_id"],
         cred_idr=test_vectors['R']['id_cred'],
         auth_key=test_vectors['R']['sk'],
-        cred=test_vectors["R"]["cred"],
-        supported_ciphers=test_vectors["S"]["supported"],
-        peer_cred=test_vectors['I']['cred'],
+        cred=(test_vectors["R"]["cred"], local_auth_key),
+        supported_ciphers=[CipherSuite.from_id(c) for c in test_vectors["S"]["supported"]],
+        peer_cred=(test_vectors['I']['cred'], remote_auth_key),
         ephemeral_key=ephemeral_responder_key
     )
 
 
 @fixture
 def ephemeral_initiator_key(test_vectors):
-    return OKP(
+    return OKPKey(
         x=test_vectors['I']['g_x'],
         d=test_vectors['I']['x'],
-        crv=CipherSuite(test_vectors['I']['selected']).dh_curve)
+        crv=CipherSuite.from_id(test_vectors['I']['selected']).dh_curve)
 
 
 @fixture
 def initiator(ephemeral_initiator_key, test_vectors):
+    if test_vectors['I']['cred_type'] == 0:
+        local_auth_key = None
+    else:
+        local_auth_key = CoseKey.decode(test_vectors['I']['cred'])
+
+    if test_vectors['R']['cred_type'] == 0:
+        remote_auth_key = None
+    else:
+        remote_auth_key = CoseKey.decode(test_vectors['R']['cred'])
+
     return Initiator(
         corr=test_vectors['S']['corr'],
         method=test_vectors['S']['method'],
-        cred=test_vectors['I']['cred'],
+        cred=(test_vectors['I']['cred'], local_auth_key),
         cred_idi=test_vectors['I']['id_cred'],
         auth_key=test_vectors['I']['sk'],
         selected_cipher=test_vectors['I']['selected'],
-        supported_ciphers=test_vectors['I']['supported'],
+        supported_ciphers=[CipherSuite.from_id(c) for c in test_vectors["I"]["supported"]],
         conn_idi=test_vectors['I']['conn_id'],
-        peer_cred=test_vectors['R']['cred'],
+        peer_cred=(test_vectors['R']['cred'], remote_auth_key),
         ephemeral_key=ephemeral_initiator_key,
     )

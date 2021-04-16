@@ -1,14 +1,23 @@
 import functools
 import os
-from typing import List, Optional, Callable, Union, Tuple
+from typing import List, Optional, Callable, Union, Tuple, TYPE_CHECKING
 
 import cbor2
-from cose import KeyOps, Enc0Message, OKP, CoseHeaderKeys
-from cose.attributes.algorithms import config as config_cose, CoseEllipticCurves
+from asn1crypto.x509 import Certificate
+from cose import headers
+from cose.curves import X448, X25519
+from cose.headers import KID
+from cose.keys import OKPKey
+from cose.keys.keyops import EncryptOp
+from cose.messages import Enc0Message
 
 from edhoc.definitions import CipherSuite, Method, Correlation, EdhocState
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage, MessageError
-from edhoc.roles.edhoc import EdhocRole, CoseHeaderMap, Key
+from edhoc.roles.edhoc import EdhocRole, CoseHeaderMap, RPK
+
+if TYPE_CHECKING:
+    from edhoc.definitions import CS
+    from cose.keys.cosekey import CK
 
 
 class Initiator(EdhocRole):
@@ -16,17 +25,17 @@ class Initiator(EdhocRole):
     def __init__(self,
                  corr: Correlation,
                  method: Method,
-                 cred: bytes,
+                 cred: Union[RPK, Certificate],
                  cred_idi: CoseHeaderMap,
-                 auth_key: Key,
-                 selected_cipher: CipherSuite,
-                 supported_ciphers: List[CipherSuite],
-                 peer_cred: Optional[Union[Callable[..., bytes], bytes]],
+                 auth_key: RPK,
+                 selected_cipher: 'CS',
+                 supported_ciphers: List['CS'],
+                 peer_cred: Optional[Union[Callable[..., Union[RPK, Certificate]], Union[RPK, Certificate]]],
                  conn_idi: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
                  aad3_cb: Optional[Callable[..., bytes]] = None,
-                 ephemeral_key: Optional[Key] = None):
+                 ephemeral_key: Optional['CK'] = None):
         """
         Create an EDHOC Initiator.
 
@@ -51,14 +60,14 @@ class Initiator(EdhocRole):
         super().__init__(cred, cred_idi, auth_key, supported_ciphers, conn_idi, peer_cred, aad1_cb, aad2_cb, aad3_cb,
                          ephemeral_key)
 
-        self._selected_cipher = CipherSuite(selected_cipher)
+        self._selected_cipher = CipherSuite.from_id(selected_cipher)
         self._corr = Correlation(corr)
         self._method = Method(method)
 
         self._cred_idr = None
 
     @property
-    def cipher_suite(self) -> CipherSuite:
+    def cipher_suite(self) -> 'CS':
         return self._selected_cipher
 
     @property
@@ -107,31 +116,31 @@ class Initiator(EdhocRole):
         return self.ephemeral_key.x
 
     @property
-    def local_pubkey(self) -> Key:
+    def local_pubkey(self) -> RPK:
         """ Returns the local ephemeral public key. """
 
-        if self.cipher_suite.dh_curve in [CoseEllipticCurves.X448, CoseEllipticCurves.X25519]:
-            return OKP(x=self.g_x, crv=self.cipher_suite.dh_curve)
+        if self.cipher_suite.dh_curve in [X448, X25519]:
+            return OKPKey(x=self.g_x, crv=self.cipher_suite.dh_curve)
         else:
             # TODO:
             pass
 
     @property
-    def remote_pubkey(self) -> Key:
+    def remote_pubkey(self) -> RPK:
         """ Returns the remote ephemeral public key. """
 
-        if self.cipher_suite.dh_curve in [CoseEllipticCurves.X448, CoseEllipticCurves.X25519]:
-            return OKP(x=self.g_y, crv=self.cipher_suite.dh_curve)
+        if self.cipher_suite.dh_curve in [X448, X25519]:
+            return OKPKey(x=self.g_y, crv=self.cipher_suite.dh_curve)
         else:
             # TODO:
             pass
 
     @property
-    def local_authkey(self) -> Key:
+    def local_authkey(self) -> RPK:
         return self._local_authkey
 
     @property
-    def remote_authkey(self) -> Key:
+    def remote_authkey(self) -> RPK:
         if hasattr(self._remote_authkey, '__call__'):
             return self._remote_authkey(self.cred_idr)
         else:
@@ -203,16 +212,15 @@ class Initiator(EdhocRole):
         app_hash = self.cipher_suite.app_hash
 
         # pass the connection identifiers and the algorithms identifiers
-        return self._conn_id, self.msg_2.conn_idr, app_aead.id, app_hash.id
+        return self._conn_id, self.msg_2.conn_idr, app_aead.identifier, app_hash.identifier
 
     @property
     def ciphertext_3(self):
         # TODO: resolve magic key and IV lengths
         iv_bytes = self._hkdf3(13, 'IV_3ae', self._prk3e2m)
 
-        hash_func = config_cose(self.cipher_suite.hash).hash
         # TODO: resolve magic key and IV lengths
-        cose_key = self._create_cose_key(self._hkdf3, 16, 'K_3ae', self._prk3e2m, KeyOps.ENCRYPT)
+        cose_key = self._create_cose_key(self._hkdf3, 16, 'K_3ae', self._prk3e2m, [EncryptOp])
 
         # create payload for the COSE_Encrypt0
         payload = [self._p_3ae]
@@ -223,10 +231,13 @@ class Initiator(EdhocRole):
         payload = b''.join(payload)
 
         # create the external data for the COSE_Encrypt0
-        th_3 = self.transcript(hash_func, self._th3_input)
+        th_3 = self.transcript(self.cipher_suite.hash.hash_cls, self._th3_input)
 
         # calculate the mac_2 using a COSE_Encrypt0 message
-        ciphertext = Enc0Message(payload=payload, external_aad=th_3).encrypt(iv_bytes, cose_key)
+        ciphertext = Enc0Message(uhdr={headers.IV: iv_bytes, headers.Algorithm: self.cipher_suite.aead},
+                                 key=cose_key,
+                                 payload=payload,
+                                 external_aad=th_3).encrypt()
 
         return ciphertext
 
@@ -251,8 +262,8 @@ class Initiator(EdhocRole):
 
         signature = self.signature_or_mac3(mac_3)
 
-        if CoseHeaderKeys.KID in self.cred_id:
-            cred_id = EdhocMessage.encode_bstr_id(self.cred_id[CoseHeaderKeys.KID])
+        if KID.identifier in self.cred_id:
+            cred_id = EdhocMessage.encode_bstr_id(self.cred_id[KID.identifier])
         else:
             cred_id = self.cred_id
 

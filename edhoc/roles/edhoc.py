@@ -1,41 +1,53 @@
 import functools
 from abc import ABCMeta, abstractmethod
 from binascii import hexlify
-from typing import List, Dict, Optional, Callable, Union, Any, Tuple
+from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKING
 
 import cbor2
-from cose import EC2, OKP, CoseEllipticCurves, Sign1Message, KeyOps, SymmetricKey, Enc0Message
-from cose.attributes.algorithms import config as config_cose, CoseAlgorithms
+from asn1crypto.x509 import Certificate
+from cose import headers
+from cose.curves import X25519, X448, P256
 from cose.exceptions import CoseIllegalCurve
-from cose.keys.cosekey import CoseKey
+from cose.headers import CoseHeaderAttribute
+from cose.keys import OKPKey, EC2Key, SymmetricKey
+from cose.keys.keyops import EncryptOp
+from cose.keys.keyparam import KpKeyOps, KpAlg
+from cose.messages import Sign1Message, Enc0Message
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey, X448PrivateKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
 
 from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation, EdhocState
+from edhoc.exceptions import EdhocException
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage
 
-Key = Union[EC2, OKP]
+if TYPE_CHECKING:
+    from edhoc.definitions import CS
+    from cose.keys.keyops import KEYOPS
+    from cose.keys.cosekey import CK
+
+RPK = Union[EC2Key, OKPKey]
 CBOR = bytes
-CoseHeaderMap = Dict[int, Any]
+CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
 
 
 class EdhocRole(metaclass=ABCMeta):
 
     def __init__(self,
-                 cred: CBOR,
+                 cred: Union[RPK, Certificate],
                  cred_id: CoseHeaderMap,
-                 auth_key: Key,
-                 supported_ciphers: List[CipherSuite],
+                 auth_key: RPK,
+                 supported_ciphers: List['CS'],
                  conn_id: bytes,
-                 peer_cred: Optional[Union[Callable[..., CBOR], CBOR]],
+                 peer_cred: Optional[Union[Callable[..., Union[RPK, Certificate]], RPK, Certificate]],
                  aad1_cb: Optional[Callable[..., bytes]],
                  aad2_cb: Optional[Callable[..., bytes]],
                  aad3_cb: Optional[Callable[..., bytes]],
-                 ephemeral_key: Optional[Key] = None):
+                 ephemeral_key: Optional['CK'] = None):
         """
         Abstract base class for the EDHOC Responder and Initiator roles.
 
@@ -54,7 +66,7 @@ class EdhocRole(metaclass=ABCMeta):
         self.cred, self._local_authkey = self._parse_credentials(cred)
         self.cred_id = cred_id
         self.auth_key = auth_key
-        self.supported_ciphers = [c for c in map(int, supported_ciphers)]
+        self.supported_ciphers = supported_ciphers
         self._peer_cred, self._remote_authkey = self._parse_credentials(peer_cred)
         self._conn_id = conn_id
         self.aad1_cb = aad1_cb
@@ -73,7 +85,7 @@ class EdhocRole(metaclass=ABCMeta):
     def transcript(self, hash_func: Callable, hash_input: bytes) -> bytes:
         """ Compute the transcript hash. """
 
-        transcript = hashes.Hash(hash_func(), backend=default_backend())
+        transcript = hashes.Hash(hash_func())
         transcript.update(hash_input)
         return transcript.finalize()
 
@@ -84,9 +96,11 @@ class EdhocRole(metaclass=ABCMeta):
         if not self.is_static_dh(role):
             cose_sign = Sign1Message(
                 phdr=self.cred_id,
+                uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=mac,
+                key=self.auth_key,
                 external_aad=self._external_aad(transcript, aad_cb))
-            return cose_sign.compute_signature(self.auth_key)
+            return cose_sign.compute_signature()
         else:
             return mac
 
@@ -107,25 +121,22 @@ class EdhocRole(metaclass=ABCMeta):
 
     # @functools.lru_cache()
     @staticmethod
-    def shared_secret(private_key: Key, public_key: Key) -> bytes:
+    def shared_secret(private_key: 'CK', public_key: 'CK') -> bytes:
         """ Compute the shared secret. """
 
-        if public_key.crv == CoseEllipticCurves.X25519:
+        if public_key.crv == X25519:
             d = X25519PrivateKey.from_private_bytes(private_key.d)
             x = X25519PublicKey.from_public_bytes(public_key.x)
-        elif public_key.crv == CoseEllipticCurves.X448:
+        elif public_key.crv == X448:
             d = X448PrivateKey.from_private_bytes(private_key.d)
-            x = X448PublicKey.from_public_bytes(public_key.x)
-        elif public_key.crv == CoseEllipticCurves.P_256:
-            d = ec.derive_private_key(
-                int(hexlify(private_key.d), 16),
-                config_cose(public_key.crv).curve[1](),
-                default_backend())
 
-            x = ec.EllipticCurvePublicNumbers(
-                int(hexlify(public_key.x), 16),
-                int(hexlify(public_key.y), 16),
-                config_cose(public_key.crv).curve[1]())
+            x = X448PublicKey.from_public_bytes(public_key.x)
+        elif public_key.crv == P256:
+            d = ec.derive_private_key(int(hexlify(private_key.d), 16), SECP256R1(), default_backend())
+
+            x = ec.EllipticCurvePublicNumbers(int(hexlify(public_key.x), 16),
+                                              int(hexlify(public_key.y), 16),
+                                              SECP256R1())
         else:
             raise CoseIllegalCurve(f"{public_key.crv} is unsupported")
 
@@ -137,7 +148,7 @@ class EdhocRole(metaclass=ABCMeta):
         return self._internal_state
 
     def exporter(self, label: str, length: int):
-        hash_func = config_cose(self.cipher_suite.hash).hash
+        hash_func = self.cipher_suite.hash
         return self._hkdf_expand(length, label, self._prk4x3m, self.transcript(hash_func, self._th4_input))
 
     @property
@@ -207,35 +218,35 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def remote_pubkey(self) -> Key:
+    def remote_pubkey(self) -> RPK:
         """ Returns the remote ephemeral public key. """
 
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def local_pubkey(self) -> Key:
+    def local_pubkey(self) -> RPK:
         """ Returns the local ephemeral public key. """
 
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def remote_authkey(self) -> Key:
+    def remote_authkey(self) -> RPK:
         """ The remote public authentication key. """
 
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def local_authkey(self) -> Key:
+    def local_authkey(self) -> RPK:
         """ The local public authentication key. """
 
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def cipher_suite(self) -> CipherSuite:
+    def cipher_suite(self) -> 'CS':
         raise NotImplementedError()
 
     @property
@@ -259,16 +270,12 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     def _th3_input(self) -> CBOR:
-        hash_func = config_cose(self.cipher_suite.hash).hash
-
-        input_th = [self.transcript(hash_func, self._th2_input), self.msg_2.ciphertext]
+        input_th = [self.transcript(self.cipher_suite.hash.hash_cls, self._th2_input), self.msg_2.ciphertext]
         return b''.join([cbor2.dumps(part) for part in input_th] + [self.data_3])
 
     @property
     def _th4_input(self) -> CBOR:
-        hash_func = config_cose(self.cipher_suite.hash).hash
-
-        input_th = [self.transcript(hash_func, self._th3_input), self.msg_3.ciphertext]
+        input_th = [self.transcript(self.cipher_suite.hash.hash_cls, self._th3_input), self.msg_3.ciphertext]
         return b''.join([cbor2.dumps(part) for part in input_th])
 
     @property
@@ -290,11 +297,10 @@ class EdhocRole(metaclass=ABCMeta):
         else:
             return self._prk4x3m_static_dh(self._prk3e2m)
 
-    def _prk(self, private_key: Key, pub_key: Key, salt: bytes) -> bytes:
-        h = self.cipher_suite.hash
+    def _prk(self, private_key: Union[RPK, 'CK'], pub_key: Union[RPK, 'CK'], salt: bytes) -> bytes:
         secret = self.shared_secret(private_key, pub_key)
 
-        prk_2e = hmac.HMAC(algorithm=config_cose(h).hash(), key=salt, backend=default_backend())
+        prk_2e = hmac.HMAC(algorithm=self.cipher_suite.hash.hash_cls(), key=salt)
         prk_2e.update(secret)
 
         prk = prk_2e.finalize()
@@ -329,25 +335,26 @@ class EdhocRole(metaclass=ABCMeta):
              aad_cb: Callable[..., bytes]) -> bytes:
 
         iv_bytes = hkdf(iv_len, iv_label, prk)
-        cose_key = self._create_cose_key(hkdf, key_len, key_label, prk, KeyOps.ENCRYPT)
+        cose_key = self._create_cose_key(hkdf, key_len, key_label, prk, [EncryptOp])
 
         # calculate the mac using a COSE_Encrypt0 message
         return Enc0Message(
             phdr=self.cred_id,
+            uhdr={headers.IV: iv_bytes, headers.Algorithm: self.cipher_suite.aead},
             payload=b'',
+            key=cose_key,
             external_aad=self._external_aad(th_input, aad_cb)
-        ).encrypt(nonce=iv_bytes, key=cose_key)
+        ).encrypt()
 
-    def _create_cose_key(self, hkdf, key_len: int, label: str, prk: bytes, ops: KeyOps) -> SymmetricKey:
+    def _create_cose_key(self, hkdf, key_len: int, label: str, prk: bytes, ops: List[Type['KEYOPS']]) -> SymmetricKey:
         return SymmetricKey(
             k=hkdf(key_len, label, prk),
-            key_ops=ops,
-            alg=self.cipher_suite.aead)
+            optional_params={KpKeyOps: ops, KpAlg: self.cipher_suite.aead}
+        )
 
     def _external_aad(self, transcript: bytes, aad_cb: Callable[..., bytes]) -> CBOR:
-        hash_func = config_cose(self.cipher_suite.hash).hash
 
-        aad = [cbor2.dumps(self.transcript(hash_func, transcript)), self.cred]
+        aad = [cbor2.dumps(self.transcript(self.cipher_suite.hash.hash_cls, transcript)), self.cred]
 
         if aad_cb is not None:
             ad = aad_cb()
@@ -378,10 +385,10 @@ class EdhocRole(metaclass=ABCMeta):
 
         :return:
         """
-        hash_func = config_cose(self.cipher_suite.hash).hash
+        hash_func = self.cipher_suite.hash.hash_cls
 
         info = EdhocKDFInfo(
-            edhoc_aead_id=self.cipher_suite.aead,
+            edhoc_aead_id=self.cipher_suite.aead.identifier,
             transcript_hash=self.transcript(hash_func, transcript),
             label=label,
             length=length)
@@ -389,8 +396,7 @@ class EdhocRole(metaclass=ABCMeta):
         derived_bytes = HKDFExpand(
             algorithm=hash_func(),
             length=info.length,
-            info=info.encode(),
-            backend=default_backend()).derive(prk)
+            info=info.encode()).derive(prk)
 
         return derived_bytes
 
@@ -404,27 +410,24 @@ class EdhocRole(metaclass=ABCMeta):
         if self.ephemeral_key is not None:
             return
 
-        chosen_suite = CipherSuite(self.cipher_suite)
+        chosen_suite = CipherSuite.from_id(self.cipher_suite)
 
-        if chosen_suite.dh_curve in [CoseEllipticCurves.X25519, CoseEllipticCurves.X448]:
-            self.ephemeral_key = OKP.generate_key(CoseAlgorithms.DIRECT, curve_type=chosen_suite.dh_curve,
-                                                  key_ops=KeyOps.SIGN)
+        if chosen_suite.dh_curve in [X25519, X448]:
+            self.ephemeral_key = OKPKey.generate_key(crv=chosen_suite.dh_curve)
         else:
-            self.ephemeral_key = EC2.generate_key(CoseAlgorithms.DIRECT, curve_type=chosen_suite.dh_curve,
-                                                  key_ops=KeyOps.SIGN)
+            self.ephemeral_key = EC2Key.generate_key(crv=chosen_suite.dh_curve)
 
     @staticmethod
-    def _parse_credentials(cred: Union[CBOR, Callable]) -> Tuple[Union[CBOR, Callable], Union[Key, Callable]]:
-        if isinstance(cred, bytes):
+    def _parse_credentials(cred: Union[RPK, 'Certificate']):
+        if isinstance(cred, EC2Key) or isinstance(cred, OKPKey):
+            cred, public_auth_key = cred, cred
 
-            if isinstance(cbor2.loads(cred), dict):
-                # this is an RPK
-                cose_key = CoseKey.decode(cbor2.loads(cred))
-                return cred, cose_key
-
-            else:
-                # TODO: update when test vectors for CBOR encoded certificates are correct
-                return cred, None
+        elif isinstance(cred, Certificate):
+            cred, public_auth_key = cred, Certificate.public_key
+        elif isinstance(cred, tuple):
+            # TODO this will be removed later on, currently here because test vectors do not provide valid certificates
+            cred, public_auth_key = cred
         else:
+            raise EdhocException("Invalid credentials")
 
-            return cred, cred
+        return cred, public_auth_key

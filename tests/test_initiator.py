@@ -1,9 +1,8 @@
 import pytest
-from cose import OKP
+from cose.keys import OKPKey
 
 from edhoc.definitions import CipherSuite
 from edhoc.messages import MessageTwo, MessageOne, MessageThree
-from cose.attributes.algorithms import config as config_cose, CoseEllipticCurves
 
 
 def test_initiator_message1(initiator, test_vectors):
@@ -14,13 +13,12 @@ def test_initiator_message1(initiator, test_vectors):
     assert initiator.create_message_one() == test_vectors['I']['message_1']
 
 
-@pytest.mark.xfail(raises=AttributeError, reason='Invalid CBOR certificates')
 def test_initiator_message3(initiator, test_vectors):
     initiator.msg_1 = MessageOne.decode(test_vectors['I']['message_1'])
     initiator.msg_2 = MessageTwo.decode(test_vectors['R']['message_2'])
 
-    crv = CoseEllipticCurves(CipherSuite(initiator._selected_cipher).dh_curve)
-    hash_func = config_cose(CipherSuite(initiator._selected_cipher).hash).hash
+    crv = CipherSuite.from_id(initiator._selected_cipher).dh_curve
+    hash_func = CipherSuite.from_id(initiator._selected_cipher).hash.hash_cls
 
     assert initiator.data_2 == test_vectors['R']['data_2']
     assert initiator._th2_input == test_vectors['R']['input_th_2']
@@ -30,7 +28,8 @@ def test_initiator_message3(initiator, test_vectors):
 
     assert initiator._decrypt(initiator.msg_2.ciphertext) == test_vectors['R']['p_2e']
 
-    assert initiator.shared_secret(initiator.ephemeral_key, OKP(x=initiator.g_y, crv=crv)) == test_vectors['S']['g_xy']
+    assert initiator.shared_secret(initiator.ephemeral_key, OKPKey(x=initiator.g_y, crv=crv)) == test_vectors['S'][
+        'g_xy']
     assert initiator.data_3 == test_vectors['I']['data_3']
     assert initiator._th3_input == test_vectors['I']['input_th_3']
     assert initiator.transcript(hash_func, initiator._th3_input) == test_vectors['I']['th_3']
@@ -57,7 +56,6 @@ def test_initiator_message3(initiator, test_vectors):
     assert initiator.create_message_three(test_vectors['R']['message_2']) == test_vectors['I']['message_3']
 
 
-@pytest.mark.xfail(raises=AttributeError, reason='Invalid CBOR certificates')
 def test_initiator_finalize(initiator, test_vectors):
     initiator.msg_1 = MessageOne.decode(initiator.create_message_one())
     initiator.msg_2 = MessageTwo.decode(test_vectors['R']['message_2'])
@@ -67,5 +65,5 @@ def test_initiator_finalize(initiator, test_vectors):
 
     assert c_i == test_vectors['I']['conn_id']
     assert c_r == test_vectors['R']['conn_id']
-    assert app_aead == CipherSuite(test_vectors['I']['selected']).app_aead.id
-    assert app_hash == CipherSuite(test_vectors['I']['selected']).app_hash.id
+    assert app_aead == CipherSuite.from_id(test_vectors['I']['selected']).app_aead.identifier
+    assert app_hash == CipherSuite.from_id(test_vectors['I']['selected']).app_hash.identifier

@@ -1,13 +1,14 @@
 from binascii import hexlify
-from typing import List, TYPE_CHECKING, Optional
+from typing import List, TYPE_CHECKING, Optional, Type
 
 import cbor2
 
 from edhoc.exceptions import EdhocInvalidMessage
 from edhoc.messages.base import EdhocMessage
+from edhoc.definitions import CipherSuite
 
 if TYPE_CHECKING:
-    from edhoc.definitions import CipherSuite
+    from edhoc.definitions import CS
 
 
 class MessageOne(EdhocMessage):
@@ -52,8 +53,8 @@ class MessageOne(EdhocMessage):
 
         msg = cls(
             method_corr=method_corr,
-            selected_cipher=selected_cipher,
-            cipher_suites=supported_ciphers,
+            selected_cipher=CipherSuite.from_id(selected_cipher),
+            cipher_suites=[CipherSuite.from_id(c) for c in supported_ciphers],
             g_x=g_x,
             conn_idi=conn_idi)
 
@@ -66,8 +67,8 @@ class MessageOne(EdhocMessage):
 
     def __init__(self,
                  method_corr: int,
-                 cipher_suites: List['CipherSuite'],
-                 selected_cipher: 'CipherSuite',
+                 cipher_suites: List['CS'],
+                 selected_cipher: Type['CS'],
                  g_x: bytes,
                  conn_idi: Optional[bytes] = None,
                  external_aad: bytes = b''):
@@ -102,9 +103,9 @@ class MessageOne(EdhocMessage):
         """
 
         if len(self.cipher_suites) > 1:
-            suites = [int(self.selected_cipher)] + self.cipher_suites
+            suites = [self.selected_cipher.identifier] + [c.identifier for c in self.cipher_suites]
         elif len(self.cipher_suites) == 1:
-            suites = int(self.selected_cipher)
+            suites = self.selected_cipher.identifier
         else:
             raise ValueError('Cipher suite list must contain at least 1 item.')
 

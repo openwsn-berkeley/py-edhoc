@@ -1,9 +1,13 @@
-from typing import NamedTuple
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import IntEnum, unique
+from typing import Callable, Any, TypeVar
 
 import cbor2
-from aenum import unique, IntEnum, Enum, MultiValue, skip
-from cose import CoseAlgorithms, CoseEllipticCurves
-from dataclasses import dataclass
+from cose.algorithms import AESCCM1664128, Sha256, EdDSA, AESCCM16128128, Es256
+from cose.curves import X25519, Ed25519, P256
+
+from edhoc.exceptions import EdhocException
 
 
 class EdhocState(IntEnum):
@@ -18,7 +22,6 @@ class EdhocState(IntEnum):
     EDHOC_FAIL = 8
 
 
-@unique
 class Method(IntEnum):
     """ Enumerations for the EHDOC method types. """
 
@@ -37,86 +40,131 @@ class Correlation(IntEnum):
     CORR_3 = 3
 
 
-class _CipherSetup(NamedTuple):
-    aead: CoseAlgorithms
-    hash: CoseAlgorithms
-    dh_curve: CoseEllipticCurves
-    sign_alg: CoseAlgorithms
-    sign_curve: CoseEllipticCurves
-    app_aead: CoseAlgorithms
-    app_hash: CoseAlgorithms
+class CipherSuite(ABC):
+    _registered_ciphersuites = {}
 
+    @classmethod
+    def default_parser(cls, value):
+        return value
 
-class CipherSuite(Enum):
-    _init_ = 'id config'
-    _settings_ = MultiValue
+    value_parser: Callable = default_parser
 
-    SUITE_0 = 0, skip(_CipherSetup(
-        aead=CoseAlgorithms.AES_CCM_16_64_128,
-        hash=CoseAlgorithms.SHA_256,
-        dh_curve=CoseEllipticCurves.X25519,
-        sign_alg=CoseAlgorithms.EDDSA,
-        sign_curve=CoseEllipticCurves.ED25519,
-        app_aead=CoseAlgorithms.AES_CCM_16_64_128,
-        app_hash=CoseAlgorithms.SHA_256))
+    @classmethod
+    def get_registered_ciphersuites(cls):
+        return cls._registered_ciphersuites
 
-    SUITE_1 = 1, skip(_CipherSetup(
-        aead=CoseAlgorithms.AES_CCM_16_128_128,
-        hash=CoseAlgorithms.SHA_256,
-        dh_curve=CoseEllipticCurves.X25519,
-        sign_alg=CoseAlgorithms.EDDSA,
-        sign_curve=CoseEllipticCurves.ED25519,
-        app_aead=CoseAlgorithms.AES_CCM_16_64_128,
-        app_hash=CoseAlgorithms.SHA_256))
+    @classmethod
+    def register_ciphersuite(cls) -> Callable:
+        def decorator(the_class: 'CipherSuite'):
+            cls.get_registered_ciphersuites()[the_class.identifier] = the_class
+            cls.get_registered_ciphersuites()[the_class.fullname] = the_class
+            return the_class
 
-    SUITE_2 = 2, skip(_CipherSetup(
-        aead=CoseAlgorithms.AES_CCM_16_64_128,
-        hash=CoseAlgorithms.SHA_256,
-        dh_curve=CoseEllipticCurves.P_256,
-        sign_alg=CoseAlgorithms.ES256,
-        sign_curve=CoseEllipticCurves.P_256,
-        app_aead=CoseAlgorithms.AES_CCM_16_64_128,
-        app_hash=CoseAlgorithms.SHA_256))
+        return decorator
 
-    SUITE_3 = 3, skip(_CipherSetup(
-        aead=CoseAlgorithms.AES_CCM_16_128_128,
-        hash=CoseAlgorithms.SHA_256,
-        dh_curve=CoseEllipticCurves.P_256,
-        sign_alg=CoseAlgorithms.ES256,
-        sign_curve=CoseEllipticCurves.P_256,
-        app_aead=CoseAlgorithms.AES_CCM_16_64_128,
-        app_hash=CoseAlgorithms.SHA_256))
+    @classmethod
+    def from_id(cls, identifier: Any) -> Any:
+        if isinstance(identifier, int) and identifier in cls.get_registered_ciphersuites():
+            return cls.get_registered_ciphersuites()[identifier]
+        elif isinstance(identifier, str) and identifier in cls.get_registered_ciphersuites():
+            return cls.get_registered_ciphersuites()[identifier.upper()]
+        elif hasattr(identifier, 'identifier') and identifier.identifier in cls.get_registered_ciphersuites():
+            return cls.get_registered_ciphersuites()[identifier.identifier]
+        else:
+            raise EdhocException(f"Unknown EDHOC cipher suite: {identifier}")
+
+    @property
+    @abstractmethod
+    def identifier(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def fullname(self) -> str:
+        raise NotImplementedError()
 
     def __int__(self):
-        return self.id
+        return self.identifier
 
-    @property
-    def aead(self):
-        return self.config.value.aead
+    def __str__(self):
+        return self.fullname
 
-    @property
-    def hash(self):
-        return self.config.value.hash
+    def __eq__(self, other: 'CipherSuite'):
+        return self.identifier == other.identifier
 
-    @property
-    def dh_curve(self):
-        return self.config.value.dh_curve
+    def __ne__(self, other: 'CipherSuite'):
+        return self.identifier != other.identifier
 
-    @property
-    def sign_alg(self):
-        return self.config.value.sign_alg
+    def __lt__(self, other: 'CipherSuite'):
+        return self.identifier < other.identifier
 
-    @property
-    def sign_curve(self):
-        return self.config.value.sign_curve
+    def __le__(self, other: 'CipherSuite'):
+        return self.identifier <= other.identifier
 
-    @property
-    def app_aead(self):
-        return self.config.value.app_aead
+    def __gt__(self, other: 'CipherSuite'):
+        return self.identifier > other.identifier
 
-    @property
-    def app_hash(self):
-        return self.config.value.app_hash
+    def __ge__(self, other: 'CipherSuite'):
+        return self.identifier >= other.identifier
+
+    def __repr__(self):
+        return f'<{self.fullname}: {self.identifier}>'
+
+
+@CipherSuite.register_ciphersuite()
+class CipherSuite0(CipherSuite):
+    identifier = 0
+    fullname = "SUITE_0"
+
+    aead = AESCCM1664128
+    hash = Sha256
+    dh_curve = X25519
+    sign_alg = EdDSA
+    sign_curve = Ed25519
+    app_aead = AESCCM1664128
+    app_hash = Sha256
+
+
+@CipherSuite.register_ciphersuite()
+class CipherSuite1(CipherSuite):
+    identifier = 1
+    fullname = "SUITE_1"
+
+    aead = AESCCM16128128
+    hash = Sha256
+    dh_curve = X25519
+    sign_alg = EdDSA
+    sign_curve = Ed25519
+    app_aead = AESCCM1664128
+    app_hash = Sha256
+
+
+@CipherSuite.register_ciphersuite()
+class CipherSuite2(CipherSuite):
+    identifier = 2
+    fullname = "SUITE_2"
+
+    aead = AESCCM1664128
+    hash = Sha256
+    dh_curve = P256
+    sign_alg = Es256
+    sign_curve = P256
+    app_aead = AESCCM1664128
+    app_hash = Sha256
+
+
+@CipherSuite.register_ciphersuite()
+class CipherSuite3(CipherSuite):
+    identifier = 3
+    fullname = "SUITE_3"
+
+    aead = AESCCM16128128
+    hash = Sha256
+    dh_curve = P256
+    sign_alg = Es256
+    sign_curve = P256
+    app_aead = AESCCM1664128
+    app_hash = Sha256
 
 
 @dataclass
@@ -127,6 +175,12 @@ class EdhocKDFInfo:
     length: int
 
     def encode(self) -> bytes:
-        info = [int(self.edhoc_aead_id), self.transcript_hash, self.label, self.length]
+        info = [self.edhoc_aead_id, self.transcript_hash, self.label, self.length]
         info = cbor2.dumps(info)
         return info
+
+
+CS = TypeVar('CS', bound='CipherSuite')
+
+if __name__ == "__main__":
+    print(CipherSuite.get_registered_ciphersuites())
