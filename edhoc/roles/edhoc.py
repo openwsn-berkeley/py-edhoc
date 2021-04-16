@@ -261,7 +261,7 @@ class EdhocRole(metaclass=ABCMeta):
     def data_2(self) -> CBOR:
         """ Create the data_2 message part from EDHOC message 2. """
 
-        return MessageTwo.data_2(self.g_y, self.conn_idr, self.conn_idi)
+        return MessageTwo.data_2(self.g_y, self.conn_idr, self.corr, self.conn_idi)
 
     @property
     def _th2_input(self) -> CBOR:

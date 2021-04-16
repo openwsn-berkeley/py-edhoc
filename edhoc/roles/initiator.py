@@ -196,7 +196,7 @@ class Initiator(EdhocRole):
 
         self._internal_state = EdhocState.MSG_3_SENT
 
-        return self.msg_3.encode()
+        return self.msg_3.encode(self.corr)
 
     def finalize(self) -> Tuple[bytes, bytes, int, int]:
         """

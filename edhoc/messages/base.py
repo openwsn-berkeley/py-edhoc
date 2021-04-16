@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from typing import Union
+from edhoc.definitions import Correlation
 
 import cbor2
 
@@ -24,7 +25,7 @@ class EdhocMessage(metaclass=ABCMeta):
         return decoded
 
     @abstractmethod
-    def encode(self):
+    def encode(self, corr: Correlation):
         """ Encodes an EDHOC message as bytes, ready to be sent over reliable transport. """
 
         raise NotImplementedError

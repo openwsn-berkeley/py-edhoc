@@ -5,7 +5,7 @@ import cbor2
 
 from edhoc.exceptions import EdhocInvalidMessage
 from edhoc.messages.base import EdhocMessage
-from edhoc.definitions import CipherSuite
+from edhoc.definitions import CipherSuite, Correlation
 
 if TYPE_CHECKING:
     from edhoc.definitions import CS
@@ -24,6 +24,7 @@ class MessageOne(EdhocMessage):
         Tries to decode the bytes as an EDHOC MessageOne.
 
         :param received: Bytes to decode.
+
         :raises EdhocInvalidMessage: Decoding routine for MessageOne failed.
         :returns: An EDHOC MessageOne object.
         """
@@ -94,7 +95,7 @@ class MessageOne(EdhocMessage):
         self.corr = self.method_corr % 4
         self.method = (self.method_corr - self.corr) // 4
 
-    def encode(self) -> bytes:
+    def encode(self, corr: Correlation = Correlation.CORR_UNKNOWN) -> bytes:
         """
         Encodes the first EDHOC message.
 
