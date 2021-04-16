@@ -113,7 +113,7 @@ class Responder(EdhocRole):
         """ Create the ciphertext_2 message part from EDHOC message 2. """
 
         length = len(self._p_2e)
-        xord = int.from_bytes(self._p_2e, "big") ^ int.from_bytes(self._hkdf2(length, "K_2e", self._prk2e), "big")
+        xord = int.from_bytes(self._p_2e, "big") ^ int.from_bytes(self._hkdf2(length, "KEYSTREAM_2", self._prk2e), "big")
         return xord.to_bytes((xord.bit_length() + 7) // 8, byteorder="big")
 
     @property
@@ -194,7 +194,7 @@ class Responder(EdhocRole):
         self.msg_2 = MessageTwo(self.g_y, self.conn_idr, self.ciphertext_2, self.conn_idi)
 
         self._internal_state = EdhocState.MSG_2_SENT
-        return self.msg_2.encode()
+        return self.msg_2.encode(self.corr)
 
     def finalize(self, message_three: bytes) -> Union[Tuple[bytes, bytes, int, int], bytes]:
         """

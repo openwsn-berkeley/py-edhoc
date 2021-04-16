@@ -196,7 +196,7 @@ class Initiator(EdhocRole):
 
         self._internal_state = EdhocState.MSG_3_SENT
 
-        return self.msg_3.encode()
+        return self.msg_3.encode(self.corr)
 
     def finalize(self) -> Tuple[bytes, bytes, int, int]:
         """
@@ -271,5 +271,5 @@ class Initiator(EdhocRole):
 
     def _decrypt(self, ciphertext: bytes) -> bytes:
         length = len(ciphertext)
-        xord = int.from_bytes(ciphertext, "big") ^ int.from_bytes(self._hkdf2(length, "K_2e", self._prk2e), "big")
+        xord = int.from_bytes(ciphertext, "big") ^ int.from_bytes(self._hkdf2(length, "KEYSTREAM_2", self._prk2e), "big")
         return xord.to_bytes((xord.bit_length() + 7) // 8, byteorder="big")

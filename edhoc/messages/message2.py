@@ -2,6 +2,7 @@ from typing import Optional, TYPE_CHECKING
 
 import cbor2
 
+from edhoc.definitions import Correlation
 from edhoc.messages.base import EdhocMessage
 
 if TYPE_CHECKING:
@@ -18,6 +19,7 @@ class MessageTwo(EdhocMessage):
     def decode(cls, received: bytes) -> 'MessageTwo':
         """
         Tries to decode the bytes as an EDHOC MessageTwo object
+
         :param received: Bytes to decode
         :return: An EDHOC MessageTwo object.
         """
@@ -35,12 +37,12 @@ class MessageTwo(EdhocMessage):
         return cls(g_y, conn_idr, ciphertext, conn_idi)
 
     @classmethod
-    def data_2(cls, g_y: bytes, conn_idr: bytes, conn_idi: Optional[bytes] = b'') -> 'CBOR':
+    def data_2(cls, g_y: bytes, conn_idr: bytes, corr: Correlation, conn_idi: Optional[bytes] = b'') -> 'CBOR':
         """ Create the data_2 message part. """
 
         data_2 = [g_y, EdhocMessage.encode_bstr_id(conn_idr)]
 
-        if conn_idi != b'':
+        if corr == Correlation.CORR_0 or corr == Correlation.CORR_2:
             data_2.insert(0, EdhocMessage.encode_bstr_id(conn_idi))
 
         return b''.join(cbor2.dumps(part) for part in data_2)
@@ -55,10 +57,10 @@ class MessageTwo(EdhocMessage):
         self.ciphertext = ciphertext
         self.conn_idi = conn_idi
 
-    def encode(self) -> bytes:
+    def encode(self, corr: Correlation) -> bytes:
         """ Encode EDHOC message 2. """
 
-        return b''.join([self.data_2(self.g_y, self.conn_idr, self.conn_idi), cbor2.dumps(self.ciphertext)])
+        return b''.join([self.data_2(self.g_y, self.conn_idr, corr, self.conn_idi), cbor2.dumps(self.ciphertext)])
 
     def __repr__(self) -> str:
         if self.conn_idi != b'':

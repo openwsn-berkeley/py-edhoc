@@ -148,8 +148,7 @@ class EdhocRole(metaclass=ABCMeta):
         return self._internal_state
 
     def exporter(self, label: str, length: int):
-        hash_func = self.cipher_suite.hash
-        return self._hkdf_expand(length, label, self._prk4x3m, self.transcript(hash_func, self._th4_input))
+        return self._hkdf_expand(length, label, self._prk4x3m, self._th4_input)
 
     @property
     @abstractmethod
@@ -262,7 +261,7 @@ class EdhocRole(metaclass=ABCMeta):
     def data_2(self) -> CBOR:
         """ Create the data_2 message part from EDHOC message 2. """
 
-        return MessageTwo.data_2(self.g_y, self.conn_idr, self.conn_idi)
+        return MessageTwo.data_2(self.g_y, self.conn_idr, self.corr, self.conn_idi)
 
     @property
     def _th2_input(self) -> CBOR:
