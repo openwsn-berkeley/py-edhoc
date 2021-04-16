@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from enum import IntEnum, unique
-from typing import Callable, Any, TypeVar
+from typing import Callable, Any, TypeVar, NamedTuple
 
 import cbor2
 from cose.algorithms import AESCCM1664128, Sha256, EdDSA, AESCCM16128128, Es256
@@ -167,8 +166,7 @@ class CipherSuite3(CipherSuite):
     app_hash = Sha256
 
 
-@dataclass
-class EdhocKDFInfo:
+class EdhocKDFInfo(NamedTuple):
     edhoc_aead_id: int
     transcript_hash: bytes
     label: str
