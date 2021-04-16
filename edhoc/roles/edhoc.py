@@ -368,15 +368,6 @@ class EdhocRole(metaclass=ABCMeta):
         aad = b"".join(aad)
         return aad
 
-    def _verify_signature(self, signature: bytes) -> bool:
-        _ = signature
-
-        if self.remote_cred_cb is None:
-            return True
-        else:
-            # TODO: needs valid CBOR certificate decoding
-            return True
-
     @abstractmethod
     def _decrypt(self, ciphertext: bytes) -> bool:
         raise NotImplementedError()

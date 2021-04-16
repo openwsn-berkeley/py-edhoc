@@ -9,7 +9,7 @@ from cose.curves import X448, X25519
 from cose.headers import KID
 from cose.keys import OKPKey
 from cose.keys.keyops import EncryptOp
-from cose.messages import Enc0Message
+from cose.messages import Enc0Message, Sign1Message
 
 from edhoc.definitions import CipherSuite, Method, Correlation, EdhocState
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage, MessageError
@@ -185,7 +185,7 @@ class Initiator(EdhocRole):
 
         self.cred_idr = decoded[0]
 
-        if not self._verify_signature(signature=decoded[1]):
+        if not self._verify_signature_or_mac2(signature_or_mac2=decoded[1]):
             self._internal_state = EdhocState.EDHOC_FAIL
             return MessageError(err_msg='Signature verification failed').encode()
 
@@ -201,6 +201,23 @@ class Initiator(EdhocRole):
         self._internal_state = EdhocState.MSG_3_SENT
 
         return self.msg_3.encode(self.corr)
+
+    def _verify_signature_or_mac2(self, signature_or_mac2: bytes) -> bool:
+        mac_2 = self._mac(self.cred_idr, self.remote_cred, self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
+
+        if not self.is_static_dh(self.remote_role):
+            external_aad = self._external_aad(self.remote_cred, self._th2_input, self.aad2_cb)
+            cose_sign = Sign1Message(
+                phdr=self.cred_idr,
+                uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
+                payload=mac_2,
+                external_aad=external_aad)
+            # FIXME peeking into internals (probably best resolved at pycose level)
+            cose_sign.key = self.remote_authkey
+            cose_sign._signature = signature_or_mac2
+            return cose_sign.verify_signature()
+        else:
+            return signature_or_mac2 == mac_2
 
     def finalize(self) -> Tuple[bytes, bytes, int, int]:
         """

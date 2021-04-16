@@ -9,7 +9,7 @@ from cose.curves import X25519, X448
 from cose.headers import KID
 from cose.keys import OKPKey
 from cose.keys.keyops import DecryptOp
-from cose.messages import Enc0Message
+from cose.messages import Enc0Message, Sign1Message
 
 from edhoc.definitions import CipherSuite, Correlation, EdhocState
 from edhoc.exceptions import EdhocException
@@ -219,7 +219,7 @@ class Responder(EdhocRole):
 
         self.cred_idi = decoded[0]
 
-        if not self._verify_signature(signature=decoded[1]):
+        if not self._verify_signature_or_mac3(signature_or_mac3=decoded[1]):
             return MessageError(err_msg='').encode()
 
         try:
@@ -235,6 +235,23 @@ class Responder(EdhocRole):
         self._internal_state = EdhocState.EDHOC_SUCC
 
         return self.msg_1.conn_idi, self._conn_id, app_aead.identifier, app_hash.identifier
+
+    def _verify_signature_or_mac3(self, signature_or_mac3: bytes) -> bool:
+        mac_3 = self._mac(self.cred_idi, self.remote_cred, self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
+
+        if not self.is_static_dh(self.remote_role):
+            external_aad = self._external_aad(self.remote_cred, self._th3_input, self.aad3_cb)
+            cose_sign = Sign1Message(
+                phdr=self.cred_idi,
+                uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
+                payload=mac_3,
+                external_aad=external_aad)
+            # FIXME peeking into internals (probably best resolved at pycose level)
+            cose_sign.key = self.remote_authkey
+            cose_sign._signature = signature_or_mac3
+            return cose_sign.verify_signature()
+        else:
+            return signature_or_mac3 == mac_3
 
     @property
     def _hkdf2(self) -> Callable:
