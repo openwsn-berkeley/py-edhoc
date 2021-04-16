@@ -11,7 +11,7 @@ from cose.keys import EC2Key, OKPKey, CoseKey
 from cose.keys.keyparam import KpAlg
 from pytest import fixture
 
-from edhoc.definitions import Method, CipherSuite
+from edhoc.definitions import CipherSuite
 from edhoc.roles.initiator import Initiator
 from edhoc.roles.responder import Responder
 
@@ -51,72 +51,23 @@ def setup_dh_key(selected_cipher: int, private_bytes: bytes):
 
 
 def type_conversion(decoded: dict):
-    if 'I' not in decoded or 'R' not in decoded:
+    new_dict = {}
+
+    if 'I' not in decoded or 'R' not in decoded or 'S' not in decoded:
         return decoded
 
-    for x in ['I', 'R']:
-        if x == "I":
-            decoded[x]["ad_1"] = unhexlify(decoded[x]["ad_1"])
-            decoded[x]["ad_3"] = unhexlify(decoded[x]["ad_1"])
-            decoded[x]['x'] = unhexlify(decoded[x]['x'])
-            decoded[x]['g_x'] = unhexlify(decoded[x]['g_x'])
+    new_dict.update({'vector': decoded['vector']})
 
-            if int(decoded['S']['method']) in [Method.SIGN_SIGN, Method.SIGN_STATIC]:
-                decoded[x]['sk'] = setup_sign_key(decoded['I']['selected'], unhexlify(decoded[x]['sk']))
-            else:
-                decoded[x]['sk'] = setup_dh_key(decoded['I']['selected'], unhexlify(decoded[x]['sk']))
-
-            decoded[x]['message_1'] = unhexlify(decoded[x]['message_1'])
-            decoded[x]['prk_4x3m'] = unhexlify(decoded[x]['prk_4x3m'])
-            decoded[x]['data_3'] = unhexlify(decoded[x]['data_3'])
-            decoded[x]['input_th_3'] = unhexlify(decoded[x]['input_th_3'])
-            decoded[x]['th_3'] = unhexlify(decoded[x]['th_3'])
-            decoded[x]['p_3m'] = unhexlify(decoded[x]['p_3m'])
-            decoded[x]['eaad_3m'] = cbor2.loads(unhexlify(decoded[x]['a_3m']))[2]
-            decoded[x]['k_3m'] = unhexlify(decoded[x]['k_3m'])
-            decoded[x]['iv_3m'] = unhexlify(decoded[x]['iv_3m'])
-            decoded[x]['mac3'] = unhexlify(decoded[x]["mac_3"])
-            decoded[x]["sign_or_mac3"] = unhexlify(decoded[x]["sign_or_mac3"])
-            decoded[x]["p_3ae"] = unhexlify(decoded[x]["p_3ae"])
-            decoded[x]["k_3ae"] = unhexlify(decoded[x]["k_3ae"])
-            decoded[x]["iv_3ae"] = unhexlify(decoded[x]["iv_3ae"])
-            decoded[x]["ciphertext_3"] = unhexlify(decoded[x]["ciphertext_3"])
-            decoded[x]['message_3'] = unhexlify(decoded[x]['message_3'])
-        if x == "R":
-            decoded[x]["ad_2"] = unhexlify(decoded[x]["ad_2"])
-            decoded[x]['y'] = unhexlify(decoded[x]['y'])
-            decoded[x]['g_y'] = unhexlify(decoded[x]['g_y'])
-
-            if int(decoded['S']['method']) in [Method.SIGN_SIGN, Method.STATIC_SIGN]:
-                decoded[x]['sk'] = setup_sign_key(decoded['I']['selected'], unhexlify(decoded[x]['sk']))
-            else:
-                decoded[x]['sk'] = setup_dh_key(decoded['I']['selected'], unhexlify(decoded[x]['sk']))
-
-            decoded[x]['prk_2e'] = unhexlify(decoded[x]['prk_2e'])
-            decoded[x]['prk_3e2m'] = unhexlify(decoded[x]['prk_3e2m'])
-            decoded[x]['data_2'] = unhexlify(decoded[x]['data_2'])
-            decoded[x]['input_th_2'] = unhexlify(decoded[x]['input_th_2'])
-            decoded[x]['th_2'] = unhexlify(decoded[x]['th_2'])
-            decoded[x]['info_k_2m'] = unhexlify(decoded[x]['info_k_2m'])
-            decoded[x]['a_2m'] = unhexlify(decoded[x]['a_2m'])
-            decoded[x]['eaad_2m'] = cbor2.loads(decoded[x]['a_2m'])[2]
-            decoded[x]['k_2m'] = unhexlify(decoded[x]['k_2m'])
-            decoded[x]['iv_2m'] = unhexlify(decoded[x]['iv_2m'])
-            decoded[x]['mac2'] = unhexlify(decoded[x]["mac_2"])
-            decoded[x]["sign_or_mac2"] = unhexlify(decoded[x]["sign_or_mac2"])
-            decoded[x]["p_2e"] = unhexlify(decoded[x]["p_2e"])
-            decoded[x]["k_2e"] = unhexlify(decoded[x]["k_2e"])
-            decoded[x]["ciphertext_2"] = unhexlify(decoded[x]["ciphertext_2"])
-            decoded[x]['message_2'] = unhexlify(decoded[x]['message_2'])
-
-        decoded[x]['conn_id'] = unhexlify(decoded[x]['conn_id'])
-        decoded[x]['id_cred'] = cbor2.loads(unhexlify(decoded[x]['id_cred']))
-        decoded[x]['cred'] = unhexlify(decoded[x]['cred'])
-        decoded[x]['subject_name'] = str(decoded[x]['subject_name'])
-
-    decoded['S']['g_xy'] = unhexlify(decoded['S']['g_xy'])
-
-    return decoded
+    new_dict.update(
+        {'I': {k: (unhexlify(decoded['I'][k]) if isinstance(decoded['I'][k], str) else decoded['I'][k]) for k in
+               decoded['I'].keys()}})
+    new_dict.update(
+        {'R': {k: (unhexlify(decoded['R'][k]) if isinstance(decoded['R'][k], str) else decoded['R'][k]) for k in
+               decoded['R'].keys()}})
+    new_dict.update(
+        {'S': {k: (unhexlify(decoded['S'][k]) if isinstance(decoded['S'][k], str) else decoded['S'][k]) for k in
+               decoded['S'].keys()}})
+    return new_dict
 
 
 @fixture
@@ -141,10 +92,10 @@ def responder(ephemeral_responder_key, test_vectors):
 
     return Responder(
         conn_idr=test_vectors["R"]["conn_id"],
-        cred_idr=test_vectors['R']['id_cred'],
-        auth_key=test_vectors['R']['sk'],
+        cred_idr=cbor2.loads(test_vectors['R']['cred_id']),
+        auth_key=CoseKey.decode(test_vectors['R']['auth_key']),
         cred=(test_vectors["R"]["cred"], local_auth_key),
-        supported_ciphers=[CipherSuite.from_id(c) for c in test_vectors["S"]["supported"]],
+        supported_ciphers=[CipherSuite.from_id(c) for c in test_vectors["R"]["supported"]],
         peer_cred=(test_vectors['I']['cred'], remote_auth_key),
         ephemeral_key=ephemeral_responder_key
     )
@@ -174,8 +125,8 @@ def initiator(ephemeral_initiator_key, test_vectors):
         corr=test_vectors['S']['corr'],
         method=test_vectors['S']['method'],
         cred=(test_vectors['I']['cred'], local_auth_key),
-        cred_idi=test_vectors['I']['id_cred'],
-        auth_key=test_vectors['I']['sk'],
+        cred_idi=cbor2.loads(test_vectors['I']['cred_id']),
+        auth_key=CoseKey.decode(test_vectors['I']['auth_key']),
         selected_cipher=test_vectors['I']['selected'],
         supported_ciphers=[CipherSuite.from_id(c) for c in test_vectors["I"]["supported"]],
         conn_idi=test_vectors['I']['conn_id'],
