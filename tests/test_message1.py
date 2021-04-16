@@ -11,7 +11,7 @@ def test_message1_encode(test_vectors):
         conn_idi=test_vectors["I"]["conn_id"],
         external_aad=test_vectors["I"]["ad_1"])
 
-    assert msg.encode() == test_vectors["S"]["message_1"]
+    assert msg.encode(test_vectors["S"]["corr"]) == test_vectors["S"]["message_1"]
 
 
 def test_message1_decode(test_vectors):

@@ -77,9 +77,9 @@ class MessageOne(EdhocMessage):
         """
         Creates an EDHOC MessageOne object.
 
-        :param method_corr: Determines which connection identifiers that are omitted.
-        :param cipher_suites: Cipher suites chosen by the Initiator (ordered by decreasing preference).
-        :param selected_cipher: The selected cipher.
+        :param method_corr: Combination of the method parameter and correlation parameter (4 * method + correlation)
+        :param cipher_suites: Supported cipher suites (ordered by decreasing preference).
+        :param selected_cipher: The preferred cipher suite.
         :param g_x: The ephemeral public key of the Initiator.
         :param conn_idi: A variable length connection identifier.
         :param external_aad: Unprotected opaque auxiliary data (transferred together with EDHOC message 1).
@@ -95,11 +95,10 @@ class MessageOne(EdhocMessage):
         self.corr = self.method_corr % 4
         self.method = (self.method_corr - self.corr) // 4
 
-    def encode(self, corr: Correlation = Correlation.CORR_UNKNOWN) -> bytes:
+    def encode(self, corr: Correlation) -> bytes:
         """
-        Encodes the first EDHOC message.
+        Encodes the first EDHOC message as a CBOR sequence.
 
-        :raises EdhocCipherException: Invalid cipher configuration.
         :returns: EDHOC message 1 encoded as bytes.
         """
 

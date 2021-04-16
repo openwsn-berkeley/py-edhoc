@@ -169,7 +169,7 @@ class Initiator(EdhocRole):
 
         self._internal_state = EdhocState.MSG_1_SENT
 
-        return self.msg_1.encode()
+        return self.msg_1.encode(self.corr)
 
     def create_message_three(self, message_two: bytes):
 
