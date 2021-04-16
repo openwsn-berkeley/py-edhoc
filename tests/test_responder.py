@@ -47,8 +47,8 @@ def test_responder_finalize(responder, test_vectors):
     responder.msg_3 = MessageThree.decode(test_vectors['S']['message_3'])
 
     decoded = EdhocMessage.decode(responder._decrypt(responder.msg_3.ciphertext))
-    if KID.identifier in test_vectors['I']['cred_id']:
-        assert decoded[0] == EdhocMessage.encode_bstr_id(test_vectors['I']['cred_id'][KID.identifier])
+    if KID.identifier in cbor2.loads(test_vectors['I']['cred_id']):
+        assert decoded[0] == EdhocMessage.encode_bstr_id(cbor2.loads(test_vectors['I']['cred_id'])[KID.identifier])
     else:
         assert decoded[0] == cbor2.loads(test_vectors['I']['cred_id'])
     assert decoded[1] == test_vectors['S']['signature_3']
