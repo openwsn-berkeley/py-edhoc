@@ -14,7 +14,7 @@ from cose.messages import Enc0Message
 from edhoc.definitions import CipherSuite, Correlation, EdhocState
 from edhoc.exceptions import EdhocException
 from edhoc.messages import MessageOne, MessageError, MessageThree, EdhocMessage, MessageTwo
-from edhoc.roles.edhoc import EdhocRole, RPK, CoseHeaderMap, CBOR
+from edhoc.roles.edhoc import EdhocRole, RPK, CoseHeaderMap
 
 if TYPE_CHECKING:
     from edhoc.definitions import CS
@@ -27,7 +27,7 @@ class Responder(EdhocRole):
                  cred_idr: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
-                 peer_cred: Optional[Union[Callable[..., bytes], CBOR]],
+                 remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
                  conn_idr: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
@@ -41,7 +41,7 @@ class Responder(EdhocRole):
         :param auth_key: The private authentication key (CoseKey) of the Responder.
         :param supported_ciphers: A list of ciphers supported by the Responder.
         :param conn_idr: The connection identifier of the Responder.
-        :param peer_cred: Provide the public authentication material for the remote peer, by a callback or directly.
+        :param remote_cred_cb: A callback that fetches the remote credentials
         :param aad1_cb: A callback to pass received additional data to the application protocol.
         :param aad2_cb: A callback to pass additional data to the remote endpoint.
         :param aad3_cb: A callback to pass received additional data to the application protocol.
@@ -51,7 +51,15 @@ class Responder(EdhocRole):
         if conn_idr is None:
             conn_idr = os.urandom(1)
 
-        super().__init__(cred, cred_idr, auth_key, supported_ciphers, conn_idr, peer_cred, aad1_cb, aad2_cb, aad3_cb,
+        super().__init__(cred,
+                         cred_idr,
+                         auth_key,
+                         supported_ciphers,
+                         conn_idr,
+                         remote_cred_cb,
+                         aad1_cb,
+                         aad2_cb,
+                         aad3_cb,
                          ephemeral_key)
 
         self._cred_idi = None
@@ -113,7 +121,8 @@ class Responder(EdhocRole):
         """ Create the ciphertext_2 message part from EDHOC message 2. """
 
         length = len(self._p_2e)
-        xord = int.from_bytes(self._p_2e, "big") ^ int.from_bytes(self._hkdf2(length, "KEYSTREAM_2", self._prk2e), "big")
+        xord = int.from_bytes(self._p_2e, "big") ^ int.from_bytes(self._hkdf2(length, "KEYSTREAM_2", self._prk2e),
+                                                                  "big")
         return xord.to_bytes((xord.bit_length() + 7) // 8, byteorder="big")
 
     @property
@@ -152,18 +161,18 @@ class Responder(EdhocRole):
         return self._local_authkey
 
     @property
-    def remote_authkey(self) -> RPK:
-        if hasattr(self._remote_authkey, '__call__'):
-            return self._remote_authkey(self.cred_idi)
-        else:
-            return self._remote_authkey
+    def remote_cred(self) -> Union[RPK, Certificate]:
+        if self._remote_authkey is None or self._remote_cred is None:
+            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idr)
+
+        return self._remote_cred
 
     @property
-    def peer_cred(self):
-        if hasattr(self._peer_cred, '__call__'):
-            self._peer_cred(self.cred_idi)
-        else:
-            return self._peer_cred
+    def remote_authkey(self) -> RPK:
+        if self._remote_authkey is None or self._remote_cred is None:
+            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idr)
+
+        return self._remote_cred
 
     def signature_or_mac2(self, mac_2: bytes):
         return self._signature_or_mac(mac_2, self._th2_input, self.aad2_cb)
@@ -252,7 +261,7 @@ class Responder(EdhocRole):
         else:
             cred_id = self.cred_id
 
-        return b"".join([cbor2.dumps(cred_id), cbor2.dumps(signature)])
+        return b"".join([cbor2.dumps(cred_id, default=EdhocRole._custom_cbor_encoder), cbor2.dumps(signature)])
 
     def _prk3e2m_static_dh(self, prk: bytes):
         return self._prk(self.auth_key, self.remote_pubkey, prk)

@@ -1,10 +1,9 @@
 import functools
 from abc import ABCMeta, abstractmethod
 from binascii import hexlify
-from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKING
+from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKING, Tuple
 
 import cbor2
-from asn1crypto.x509 import Certificate
 from cose import headers
 from cose.curves import X25519, X448, P256
 from cose.exceptions import CoseIllegalCurve
@@ -14,12 +13,13 @@ from cose.keys.keyops import EncryptOp
 from cose.keys.keyparam import KpKeyOps, KpAlg
 from cose.messages import Sign1Message, Enc0Message
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, hmac
+from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey, X448PrivateKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
+from cryptography.x509 import Certificate
 
 from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation, EdhocState
 from edhoc.exceptions import EdhocException
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from edhoc.definitions import CS
     from cose.keys.keyops import KEYOPS
     from cose.keys.cosekey import CK
+    from cose.headers import CoseHeaderAttribute
 
 RPK = Union[EC2Key, OKPKey]
 CBOR = bytes
@@ -41,9 +42,9 @@ class EdhocRole(metaclass=ABCMeta):
                  cred: Union[RPK, Certificate],
                  cred_id: CoseHeaderMap,
                  auth_key: RPK,
-                 supported_ciphers: List['CS'],
+                 supported_ciphers: List[Type['CS']],
                  conn_id: bytes,
-                 peer_cred: Optional[Union[Callable[..., Union[RPK, Certificate]], RPK, Certificate]],
+                 remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
                  aad1_cb: Optional[Callable[..., bytes]],
                  aad2_cb: Optional[Callable[..., bytes]],
                  aad3_cb: Optional[Callable[..., bytes]],
@@ -51,11 +52,11 @@ class EdhocRole(metaclass=ABCMeta):
         """
         Abstract base class for the EDHOC Responder and Initiator roles.
 
-        :param cred: CBOR-encoded public authentication credentials.
-        :param cred_id: The credential identifier (a CBOR encoded COSE header map)
-        :param auth_key: The private authentication key (of type :class:`~cose.keys.ec2.EC2` or \
-        :class:`~cose.keys.okp.OKP`). Forms a key pair with `local_authkey`. # noqa: E501
-        :param supported_ciphers: A list of ciphers supported.
+        :param cred: An RPK (Raw Public Key) or certificate
+        :param cred_id: The credential identifier (a COSE header map)
+        :param auth_key: The private authentication key (of type :class:`~cose.keys.ec2.EC2Key` or \
+        :class:`~cose.keys.okp.OKPKey`). # noqa: E501
+        :param supported_ciphers: A list of supported ciphers of type :class:`edhoc.definitions.CipherSuite`.
         :param conn_id: The connection identifier to be used.
         :param aad1_cb: A callback to pass received additional data to the application protocol.
         :param aad2_cb: A callback to pass additional data to the remote endpoint.
@@ -67,7 +68,11 @@ class EdhocRole(metaclass=ABCMeta):
         self.cred_id = cred_id
         self.auth_key = auth_key
         self.supported_ciphers = supported_ciphers
-        self._peer_cred, self._remote_authkey = self._parse_credentials(peer_cred)
+
+        self.remote_cred_cb = remote_cred_cb
+        self._remote_authkey = None
+        self._remote_cred = None
+
         self._conn_id = conn_id
         self.aad1_cb = aad1_cb
         self.aad2_cb = aad2_cb
@@ -152,13 +157,6 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def peer_cred(self):
-        """ Returns the peer's credentials, e.g. certificate. """
-
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
     def corr(self) -> Correlation:
         """ Returns the correlation value for the EDHOC transport protocol. """
 
@@ -231,16 +229,19 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def remote_authkey(self) -> RPK:
-        """ The remote public authentication key. """
+    def local_authkey(self) -> RPK:
+        """ The local public authentication key. """
 
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def local_authkey(self) -> RPK:
-        """ The local public authentication key. """
+    def remote_cred(self) -> Union[RPK, Certificate]:
+        raise NotImplementedError()
 
+    @property
+    @abstractmethod
+    def remote_authkey(self) -> RPK:
         raise NotImplementedError()
 
     @property
@@ -353,7 +354,16 @@ class EdhocRole(metaclass=ABCMeta):
 
     def _external_aad(self, transcript: bytes, aad_cb: Callable[..., bytes]) -> CBOR:
 
-        aad = [cbor2.dumps(self.transcript(self.cipher_suite.hash.hash_cls, transcript)), self.cred]
+        if isinstance(self.cred, OKPKey) or isinstance(self.cred, EC2Key):
+            encoded_credential = self.cred.encode()
+        elif isinstance(self.cred, Certificate):
+            encoded_credential = cbor2.dumps(self.cred.tbs_certificate_bytes)
+        else:
+            # TODO: this shouldn't be here, but since somes of the test vectors are not real certificates we need
+            #  this hack
+            encoded_credential = cbor2.dumps(self.cred)
+
+        aad = [cbor2.dumps(self.transcript(self.cipher_suite.hash.hash_cls, transcript)), encoded_credential]
 
         if aad_cb is not None:
             ad = aad_cb()
@@ -367,7 +377,7 @@ class EdhocRole(metaclass=ABCMeta):
     def _verify_signature(self, signature: bytes) -> bool:
         _ = signature
 
-        if self.peer_cred is None:
+        if self.remote_cred_cb is None:
             return True
         else:
             # TODO: needs valid CBOR certificate decoding
@@ -417,16 +427,22 @@ class EdhocRole(metaclass=ABCMeta):
             self.ephemeral_key = EC2Key.generate_key(crv=chosen_suite.dh_curve)
 
     @staticmethod
-    def _parse_credentials(cred: Union[RPK, 'Certificate']):
+    def _parse_credentials(cred: Union[RPK, 'Certificate']) -> Tuple[Union[Certificate, RPK], RPK]:
+        """
+        Internal helper function that parser credentials and extracts the public key.
+        """
         if isinstance(cred, EC2Key) or isinstance(cred, OKPKey):
-            cred, public_auth_key = cred, cred
-
+            cred, auth_key = cred, cred
         elif isinstance(cred, Certificate):
-            cred, public_auth_key = cred, Certificate.public_key
+            cred, auth_key = cred, cred.public_key().public_bytes(serialization.Encoding.Raw,
+                                                                  serialization.PublicFormat.Raw)
         elif isinstance(cred, tuple):
-            # TODO this will be removed later on, currently here because test vectors do not provide valid certificates
-            cred, public_auth_key = cred
+            cred, auth_key = cred
         else:
             raise EdhocException("Invalid credentials")
 
-        return cred, public_auth_key
+        return cred, auth_key
+
+    @classmethod
+    def _custom_cbor_encoder(cls, encoder, cose_attribute: 'CoseHeaderAttribute'):
+        encoder.encode(cose_attribute.identifier)

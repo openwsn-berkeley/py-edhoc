@@ -1,42 +1,47 @@
+#!/usr/bin/env python3
+
 import argparse
 import asyncio
 import logging
-import pickle
 import sys
 from binascii import unhexlify
-from pathlib import Path
 
-import cbor2
 from aiocoap import Context, Message
 from aiocoap.numbers.codes import Code
-from cose import CoseEllipticCurves, CoseAlgorithms, OKP, CoseHeaderKeys
+from cose import headers
+from cose.algorithms import Sha256Trunc64
+from cose.curves import X25519, Ed25519
+from cose.extensions.x509 import X5T
+from cose.keys import OKPKey
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
-from edhoc.definitions import CipherSuite, Correlation, Method
+from edhoc.definitions import Correlation, Method, CipherSuite0
 from edhoc.roles.edhoc import CoseHeaderMap
 from edhoc.roles.initiator import Initiator
 
 logging.basicConfig(level=logging.INFO)
 
-_msg_3 = b'1358582d88ff86da47482c0dfa559ac824a4a783d870c9dba47805e8aafbad6974c49646586503fa9bbf3e00012c037eaf56e45' \
-         b'e301920839b813a53f6d4c557480f6c797d5b76f0e462f5f57a3db6d2b50c32319f340f4ac5af9a'
+with open("initiator-cert.pem", "rb") as f:
+    c = b"".join(f.readlines())
 
-# private signature key
-private_key = OKP(
-    crv=CoseEllipticCurves.ED25519,
-    alg=CoseAlgorithms.EDDSA,
-    d=unhexlify("2ffce7a0b2b825d397d0cb54f746e3da3f27596ee06b5371481dc0e012bc34d7")
-)
+initiator_cert = x509.load_pem_x509_certificate(c)
 
-# certificate (should contain the pubkey but is just a random string)
-cert = "5865fa34b22a9ca4a1e12924eae1d1766088098449cb848ffc795f88afc49cbe8afdd1ba009f21675e8f6c77a4a2c30195601f6f0a" \
-       "0852978bd43d28207d44486502ff7bdda632c788370016b8965bdb2074bff82e5a20e09bec21f8406e86442b87ec3ff245b7"
+cert_hash = X5T.from_certificate(Sha256Trunc64, initiator_cert.tbs_certificate_bytes).encode()
+cred_id_initiator = {headers.X5t: cert_hash}
 
-cert = unhexlify(cert)
+with open("initiator-authkey.pem", "rb") as f:
+    k = b"".join(f.readlines())
 
-cred_id = cbor2.loads(unhexlify(b"a11822822e485b786988439ebcf2"))
+key = load_pem_private_key(k, password=None)
 
-with (Path(__file__).parent / "cred_store.pickle").open('rb') as h:
-    credentials_storage = pickle.load(h)
+initiator_authkey = OKPKey(crv=Ed25519,
+                           d=key.private_bytes(serialization.Encoding.Raw,
+                                               serialization.PrivateFormat.Raw,
+                                               serialization.NoEncryption()),
+                           x=key.public_key().public_bytes(serialization.Encoding.Raw,
+                                                           serialization.PublicFormat.Raw))
 
 
 async def main():
@@ -50,11 +55,11 @@ async def main():
 
     context = await Context.create_client_context()
 
-    supported = [CipherSuite.SUITE_0]
+    supported = [CipherSuite0]
 
     if args.epk:
-        ephemeral_key = OKP(
-            crv=CoseEllipticCurves.X25519,
+        ephemeral_key = OKPKey(
+            crv=X25519,
             x=unhexlify("898ff79a02067a16ea1eccb90fa52246f5aa4dd6ec076bba0259d904b7ec8b0c"),
             d=unhexlify("8f781a095372f85b6d9f6109ae422611734d7dbfa0069a2df2935bb2e053bf35"))
     else:
@@ -64,18 +69,18 @@ async def main():
         corr=Correlation.CORR_1,
         method=Method.SIGN_SIGN,
         conn_idi=unhexlify(b''),
-        cred_idi=cred_id,
-        auth_key=private_key,
-        cred=cert,
-        peer_cred=get_peer_cred,
+        cred_idi=cred_id_initiator,
+        auth_key=initiator_authkey,
+        cred=initiator_cert,
+        remote_cred_cb=get_peer_cred,
         supported_ciphers=supported,
-        selected_cipher=CipherSuite.SUITE_0,
+        selected_cipher=CipherSuite0,
         ephemeral_key=ephemeral_key)
 
     msg_1 = init.create_message_one()
     # assert msg_1 == unhexlify(b"01005820898ff79a02067a16ea1eccb90fa52246f5aa4dd6ec076bba0259d904b7ec8b0c40")
 
-    request = Message(code=Code.POST, payload=msg_1, uri=f"coap://{args.ip}/.well-known/edhoc")
+    request = Message(code=Code.POST, payload=msg_1, uri=f"coap://[{args.ip}]/.well-known/edhoc")
 
     logging.info("POST (%s)  %s", init.edhoc_state, request.payload)
     response = await context.request(request).response
@@ -85,7 +90,7 @@ async def main():
     # assert msg_3 == unhexlify(_msg_3)
 
     logging.info("POST (%s)  %s", init.edhoc_state, request.payload)
-    request = Message(code=Code.POST, payload=msg_3, uri=f"coap://{args.ip}/.well-known/edhoc")
+    request = Message(code=Code.POST, payload=msg_3, uri=f"coap://[{args.ip}]/.well-known/edhoc")
     response = await context.request(request).response
 
     conn_idi, conn_idr, aead, hashf = init.finalize()
@@ -93,25 +98,28 @@ async def main():
     logging.info('EDHOC key exchange successfully completed:')
     logging.info(f" - connection IDr: {conn_idr}")
     logging.info(f" - connection IDi: {conn_idi}")
-    logging.info(f" - aead algorithm: {CoseAlgorithms(aead)}")
-    logging.info(f" - hash algorithm: {CoseAlgorithms(hashf)}")
+    logging.info(f" - aead algorithm: {aead}")
+    logging.info(f" - hash algorithm: {hashf}")
 
     logging.info(f" - OSCORE secret : {init.exporter('OSCORE Master Secret', 16)}")
     logging.info(f" - OSCORE salt   : {init.exporter('OSCORE Master Salt', 8)}")
 
 
 def get_peer_cred(cred_id: CoseHeaderMap):
-    identifier = int.from_bytes(cred_id[CoseHeaderKeys.X5_T][1], byteorder="big")
-    try:
-        return unhexlify(credentials_storage[identifier])
-    except KeyError:
-        return None
+    with open("responder-cert.pem", "rb") as file:
+        cert = b"".join(file.readlines())
+
+    responder_cert = x509.load_pem_x509_certificate(cert)
+
+    return responder_cert
+
 
 def sync_main():
     try:
         asyncio.get_event_loop().run_until_complete(main())
     except KeyboardInterrupt:
-            sys.exit(3)
+        sys.exit(3)
+
 
 if __name__ == "__main__":
     sync_main()
