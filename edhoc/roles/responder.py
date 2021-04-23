@@ -163,14 +163,14 @@ class Responder(EdhocRole):
     @property
     def remote_cred(self) -> Union[RPK, Certificate]:
         if self._remote_authkey is None or self._remote_cred is None:
-            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idr)
+            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idi)
 
         return self._remote_cred
 
     @property
     def remote_authkey(self) -> RPK:
         if self._remote_authkey is None or self._remote_cred is None:
-            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idr)
+            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idi)
 
         return self._remote_cred
 
