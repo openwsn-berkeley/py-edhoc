@@ -172,7 +172,7 @@ class Responder(EdhocRole):
         if self._remote_authkey is None or self._remote_cred is None:
             self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idi)
 
-        return self._remote_cred
+        return self._remote_authkey
 
     def signature_or_mac2(self, mac_2: bytes):
         return self._signature_or_mac(mac_2, self._th2_input, self.aad2_cb)

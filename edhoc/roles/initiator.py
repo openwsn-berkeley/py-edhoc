@@ -159,7 +159,7 @@ class Initiator(EdhocRole):
         if self._remote_authkey is None or self._remote_cred is None:
             self._remote_cred, self._remote_authkey = self._parse_credentials(self.remote_cred_cb(self.cred_idr))
 
-        return self._remote_cred
+        return self._remote_authkey
 
     def signature_or_mac3(self, mac_3: bytes):
         return self._signature_or_mac(mac_3, self._th3_input, self.aad3_cb)
