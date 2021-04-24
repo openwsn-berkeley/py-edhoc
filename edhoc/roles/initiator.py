@@ -72,8 +72,6 @@ class Initiator(EdhocRole):
         self._corr = Correlation(corr)
         self._method = Method(method)
 
-        self._cred_idr = None
-
     @property
     def cipher_suite(self) -> 'CS':
         return self._selected_cipher
@@ -112,6 +110,11 @@ class Initiator(EdhocRole):
     def cred_idr(self) -> CoseHeaderMap:
         return self._cred_idr
 
+    @cred_idr.setter
+    def cred_idr(self, value):
+        self._cred_idr = value
+        self._populate_remote_details(value)
+
     @property
     def g_y(self) -> bytes:
         return self.msg_2.g_y
@@ -147,20 +150,6 @@ class Initiator(EdhocRole):
     def local_authkey(self) -> RPK:
         return self._local_authkey
 
-    @property
-    def remote_cred(self) -> Union[RPK, Certificate]:
-        if self._remote_authkey is None or self._remote_cred is None:
-            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idr)
-
-        return self._remote_cred
-
-    @property
-    def remote_authkey(self) -> RPK:
-        if self._remote_authkey is None or self._remote_cred is None:
-            self._remote_cred, self._remote_authkey = self._parse_credentials(self.remote_cred_cb(self.cred_idr))
-
-        return self._remote_authkey
-
     def signature_or_mac3(self, mac_3: bytes):
         return self._signature_or_mac(mac_3, self._th3_input, self.aad3_cb)
 
@@ -187,7 +176,7 @@ class Initiator(EdhocRole):
 
         decoded = EdhocMessage.decode(self._decrypt(self.msg_2.ciphertext))
 
-        self._cred_idr = decoded[0]
+        self.cred_idr = decoded[0]
 
         if not self._verify_signature(signature=decoded[1]):
             self._internal_state = EdhocState.EDHOC_FAIL

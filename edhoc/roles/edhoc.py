@@ -70,8 +70,6 @@ class EdhocRole(metaclass=ABCMeta):
         self.supported_ciphers = supported_ciphers
 
         self.remote_cred_cb = remote_cred_cb
-        self._remote_authkey = None
-        self._remote_cred = None
 
         self._conn_id = conn_id
         self.aad1_cb = aad1_cb
@@ -232,16 +230,6 @@ class EdhocRole(metaclass=ABCMeta):
     def local_authkey(self) -> RPK:
         """ The local public authentication key. """
 
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def remote_cred(self) -> Union[RPK, Certificate]:
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def remote_authkey(self) -> RPK:
         raise NotImplementedError()
 
     @property
@@ -455,3 +443,6 @@ class EdhocRole(metaclass=ABCMeta):
     @classmethod
     def _custom_cbor_encoder(cls, encoder, cose_attribute: 'CoseHeaderAttribute'):
         encoder.encode(cose_attribute.identifier)
+
+    def _populate_remote_details(self, remote_cred_id):
+        self.remote_cred, self.remote_authkey = self._parse_credentials(self.remote_cred_cb(remote_cred_id))

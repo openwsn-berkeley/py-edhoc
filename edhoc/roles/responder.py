@@ -62,8 +62,6 @@ class Responder(EdhocRole):
                          aad3_cb,
                          ephemeral_key)
 
-        self._cred_idi = None
-
     @property
     def cipher_suite(self) -> 'CS':
         if self.msg_1 is None:
@@ -111,6 +109,11 @@ class Responder(EdhocRole):
     @property
     def cred_idi(self) -> CoseHeaderMap:
         return self._cred_idi
+
+    @cred_idi.setter
+    def cred_idi(self, value):
+        self._cred_idi = value
+        self._populate_remote_details(value)
 
     @property
     def cred_idr(self) -> CoseHeaderMap:
@@ -160,20 +163,6 @@ class Responder(EdhocRole):
     def local_authkey(self) -> RPK:
         return self._local_authkey
 
-    @property
-    def remote_cred(self) -> Union[RPK, Certificate]:
-        if self._remote_authkey is None or self._remote_cred is None:
-            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idi)
-
-        return self._remote_cred
-
-    @property
-    def remote_authkey(self) -> RPK:
-        if self._remote_authkey is None or self._remote_cred is None:
-            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idi)
-
-        return self._remote_authkey
-
     def signature_or_mac2(self, mac_2: bytes):
         return self._signature_or_mac(mac_2, self._th2_input, self.aad2_cb)
 
@@ -220,7 +209,7 @@ class Responder(EdhocRole):
 
         decoded = EdhocMessage.decode(self._decrypt(self.msg_3.ciphertext))
 
-        self._cred_idi = decoded[0]
+        self.cred_idi = decoded[0]
 
         if not self._verify_signature(signature=decoded[1]):
             return MessageError(err_msg='').encode()
