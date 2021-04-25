@@ -93,10 +93,7 @@ class EdhocRole(metaclass=ABCMeta):
         return transcript.finalize()
 
     def _signature_or_mac(self, mac: bytes, transcript: bytes, aad_cb: Callable[..., bytes]) -> bytes:
-
-        role = 'I' if type(self).__name__ == 'Initiator' else 'R'
-
-        if not self.is_static_dh(role):
+        if not self.is_static_dh(self.role):
             cose_sign = Sign1Message(
                 phdr=self.cred_id,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},

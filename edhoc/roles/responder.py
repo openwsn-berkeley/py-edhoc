@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 
 
 class Responder(EdhocRole):
+    role = 'R'
+    remote_role = 'I'
+
     def __init__(self,
                  cred: Union[RPK, Certificate],
                  cred_idr: CoseHeaderMap,

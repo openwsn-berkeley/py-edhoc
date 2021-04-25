@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 
 class Initiator(EdhocRole):
+    role = 'I'
+    remote_role = 'R'
 
     def __init__(self,
                  corr: Correlation,
