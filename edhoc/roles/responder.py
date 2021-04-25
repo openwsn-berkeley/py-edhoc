@@ -115,6 +115,11 @@ class Responder(EdhocRole):
 
     @cred_idi.setter
     def cred_idi(self, value):
+        if isinstance(value, int):
+            value = {4: EdhocMessage.decode_bstr_id(value)}
+        elif isinstance(value, bytes):
+            value = {4: value}
+
         self._cred_idi = value
         self._populate_remote_details(value)
 

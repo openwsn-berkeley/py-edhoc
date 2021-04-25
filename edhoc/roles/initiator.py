@@ -114,6 +114,11 @@ class Initiator(EdhocRole):
 
     @cred_idr.setter
     def cred_idr(self, value):
+        if isinstance(value, int):
+            value = {4: EdhocMessage.decode_bstr_id(value)}
+        elif isinstance(value, bytes):
+            value = {4: value}
+
         self._cred_idr = value
         self._populate_remote_details(value)
 
