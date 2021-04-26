@@ -94,15 +94,17 @@ def responder(ephemeral_responder_key, test_vectors):
         remote_cred = CoseKey.decode(test_vectors['I']['cred'])
         remote_auth_key = CoseKey.decode(test_vectors['I']['cred'])
 
-    return Responder(
+    responder = Responder(
         conn_idr=test_vectors["R"]["conn_id"],
         cred_idr=cbor2.loads(test_vectors['R']['cred_id']),
         auth_key=CoseKey.decode(test_vectors['R']['auth_key']),
         cred=(local_cred, local_auth_key),
         supported_ciphers=[CipherSuite.from_id(c) for c in test_vectors["R"]["supported"]],
-        remote_cred_cb=(remote_cred, remote_auth_key),
+        remote_cred_cb=lambda arg: (remote_cred, remote_auth_key),
         ephemeral_key=ephemeral_responder_key
     )
+    responder.cred_idi = test_vectors['I']['cred_id']
+    return responder
 
 
 @fixture
@@ -129,7 +131,7 @@ def initiator(ephemeral_initiator_key, test_vectors):
         remote_auth_key = CoseKey.decode(test_vectors['R']['cred'])
         remote_cred = CoseKey.decode(test_vectors['R']['cred'])
 
-    return Initiator(
+    initiator = Initiator(
         corr=test_vectors['S']['corr'],
         method=test_vectors['S']['method'],
         cred=(local_cred, local_auth_key),
@@ -141,3 +143,5 @@ def initiator(ephemeral_initiator_key, test_vectors):
         remote_cred_cb=lambda x: (remote_cred, remote_auth_key),
         ephemeral_key=ephemeral_initiator_key,
     )
+    initiator.cred_idr = test_vectors['R']['cred_id']
+    return initiator
