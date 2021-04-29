@@ -80,23 +80,27 @@ def ephemeral_responder_key(test_vectors):
 
 @fixture
 def responder(ephemeral_responder_key, test_vectors):
-    if test_vectors['I']['cred_type'] == 0:
+    if test_vectors['R']['cred_type'] == 0:
+        local_cred = cbor2.loads(test_vectors['R']['cred'])
         local_auth_key = None
     else:
-        local_auth_key = CoseKey.decode(test_vectors['I']['cred'])
+        local_cred = CoseKey.decode(test_vectors['R']['cred'])
+        local_auth_key = CoseKey.decode(test_vectors['R']['cred'])
 
-    if test_vectors['R']['cred_type'] == 0:
+    if test_vectors['I']['cred_type'] == 0:
+        remote_cred = cbor2.loads(test_vectors['I']['cred'])
         remote_auth_key = None
     else:
-        remote_auth_key = CoseKey.decode(test_vectors['R']['cred'])
+        remote_cred = CoseKey.decode(test_vectors['I']['cred'])
+        remote_auth_key = CoseKey.decode(test_vectors['I']['cred'])
 
     return Responder(
         conn_idr=test_vectors["R"]["conn_id"],
         cred_idr=cbor2.loads(test_vectors['R']['cred_id']),
         auth_key=CoseKey.decode(test_vectors['R']['auth_key']),
-        cred=(test_vectors["R"]["cred"], local_auth_key),
+        cred=(local_cred, local_auth_key),
         supported_ciphers=[CipherSuite.from_id(c) for c in test_vectors["R"]["supported"]],
-        peer_cred=(test_vectors['I']['cred'], remote_auth_key),
+        remote_cred_cb=(remote_cred, remote_auth_key),
         ephemeral_key=ephemeral_responder_key
     )
 
@@ -113,23 +117,27 @@ def ephemeral_initiator_key(test_vectors):
 def initiator(ephemeral_initiator_key, test_vectors):
     if test_vectors['I']['cred_type'] == 0:
         local_auth_key = None
+        local_cred = cbor2.loads(test_vectors['I']['cred'])
     else:
         local_auth_key = CoseKey.decode(test_vectors['I']['cred'])
+        local_cred = CoseKey.decode(test_vectors['I']['cred'])
 
     if test_vectors['R']['cred_type'] == 0:
         remote_auth_key = None
+        remote_cred = cbor2.loads(test_vectors['R']['cred'])
     else:
         remote_auth_key = CoseKey.decode(test_vectors['R']['cred'])
+        remote_cred = CoseKey.decode(test_vectors['R']['cred'])
 
     return Initiator(
         corr=test_vectors['S']['corr'],
         method=test_vectors['S']['method'],
-        cred=(test_vectors['I']['cred'], local_auth_key),
+        cred=(local_cred, local_auth_key),
         cred_idi=cbor2.loads(test_vectors['I']['cred_id']),
         auth_key=CoseKey.decode(test_vectors['I']['auth_key']),
         selected_cipher=test_vectors['I']['selected'],
         supported_ciphers=[CipherSuite.from_id(c) for c in test_vectors["I"]["supported"]],
         conn_idi=test_vectors['I']['conn_id'],
-        peer_cred=(test_vectors['R']['cred'], remote_auth_key),
+        remote_cred_cb=lambda x: (remote_cred, remote_auth_key),
         ephemeral_key=ephemeral_initiator_key,
     )

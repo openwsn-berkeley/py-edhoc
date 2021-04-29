@@ -1,6 +1,6 @@
 import functools
 import os
-from typing import List, Optional, Callable, Union, Tuple, TYPE_CHECKING
+from typing import List, Optional, Callable, Union, Tuple, TYPE_CHECKING, Type
 
 import cbor2
 from asn1crypto.x509 import Certificate
@@ -28,9 +28,9 @@ class Initiator(EdhocRole):
                  cred: Union[RPK, Certificate],
                  cred_idi: CoseHeaderMap,
                  auth_key: RPK,
-                 selected_cipher: 'CS',
-                 supported_ciphers: List['CS'],
-                 peer_cred: Optional[Union[Callable[..., Union[RPK, Certificate]], Union[RPK, Certificate]]],
+                 selected_cipher: Type['CS'],
+                 supported_ciphers: List[Type['CS']],
+                 remote_cred_cb:  Callable[[CoseHeaderMap], Union[Certificate, RPK]],
                  conn_idi: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
@@ -47,7 +47,7 @@ class Initiator(EdhocRole):
         :param selected_cipher: Provide the selected cipher.
         :param supported_ciphers: A list of ciphers supported by the Responder.
         :param conn_idi: The connection identifier to be used
-        :param peer_cred: Provide the public authentication material for the remote peer, by a callback or directly.
+        :param remote_cred_cb: A callback that fetches the remote credentials.
         :param aad1_cb: A callback to pass received additional data to the application protocol.
         :param aad2_cb: A callback to pass additional data to the remote endpoint.
         :param aad3_cb: A callback to pass received additional data to the application protocol.
@@ -57,7 +57,15 @@ class Initiator(EdhocRole):
         if conn_idi is None:
             conn_idi = os.urandom(1)
 
-        super().__init__(cred, cred_idi, auth_key, supported_ciphers, conn_idi, peer_cred, aad1_cb, aad2_cb, aad3_cb,
+        super().__init__(cred,
+                         cred_idi,
+                         auth_key,
+                         supported_ciphers,
+                         conn_idi,
+                         remote_cred_cb,
+                         aad1_cb,
+                         aad2_cb,
+                         aad3_cb,
                          ephemeral_key)
 
         self._selected_cipher = CipherSuite.from_id(selected_cipher)
@@ -140,18 +148,18 @@ class Initiator(EdhocRole):
         return self._local_authkey
 
     @property
-    def remote_authkey(self) -> RPK:
-        if hasattr(self._remote_authkey, '__call__'):
-            return self._remote_authkey(self.cred_idr)
-        else:
-            return self._remote_authkey
+    def remote_cred(self) -> Union[RPK, Certificate]:
+        if self._remote_authkey is None or self._remote_cred is None:
+            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idr)
+
+        return self._remote_cred
 
     @property
-    def peer_cred(self):
-        if hasattr(self._peer_cred, '__call__'):
-            self._peer_cred(self.cred_idr)
-        else:
-            return self._peer_cred
+    def remote_authkey(self) -> RPK:
+        if self._remote_authkey is None or self._remote_cred is None:
+            self._remote_cred, self._remote_authkey = self._parse_credentials(self.remote_cred_cb(self.cred_idr))
+
+        return self._remote_cred
 
     def signature_or_mac3(self, mac_3: bytes):
         return self._signature_or_mac(mac_3, self._th3_input, self.aad3_cb)
@@ -267,9 +275,10 @@ class Initiator(EdhocRole):
         else:
             cred_id = self.cred_id
 
-        return b"".join([cbor2.dumps(cred_id), cbor2.dumps(signature)])
+        return b"".join([cbor2.dumps(cred_id, default=EdhocRole._custom_cbor_encoder), cbor2.dumps(signature)])
 
     def _decrypt(self, ciphertext: bytes) -> bytes:
         length = len(ciphertext)
-        xord = int.from_bytes(ciphertext, "big") ^ int.from_bytes(self._hkdf2(length, "KEYSTREAM_2", self._prk2e), "big")
+        xord = int.from_bytes(ciphertext, "big") ^ int.from_bytes(self._hkdf2(length, "KEYSTREAM_2", self._prk2e),
+                                                                  "big")
         return xord.to_bytes((xord.bit_length() + 7) // 8, byteorder="big")
