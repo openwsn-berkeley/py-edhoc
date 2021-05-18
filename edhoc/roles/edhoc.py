@@ -5,8 +5,8 @@ from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKI
 
 import cbor2
 from cose import headers
-from cose.curves import X25519, X448, P256
-from cose.exceptions import CoseIllegalCurve
+from cose.keys.curves import X25519, X448, P256
+from cose.exceptions import CoseUnsupportedCurve
 from cose.headers import CoseHeaderAttribute
 from cose.keys import OKPKey, EC2Key, SymmetricKey
 from cose.keys.keyops import EncryptOp
@@ -142,7 +142,7 @@ class EdhocRole(metaclass=ABCMeta):
             x = x.public_key()
             secret = d.exchange(ec.ECDH(), x)
         else:
-            raise CoseIllegalCurve(f"{public_key.crv} is unsupported")
+            raise CoseUnsupportedCurve(f"{public_key.crv} is unsupported")
 
         return secret
 

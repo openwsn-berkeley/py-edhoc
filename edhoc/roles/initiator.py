@@ -5,7 +5,7 @@ from typing import List, Optional, Callable, Union, Tuple, TYPE_CHECKING, Type
 import cbor2
 from asn1crypto.x509 import Certificate
 from cose import headers
-from cose.curves import X448, X25519
+from cose.keys.curves import X448, X25519
 from cose.headers import KID
 from cose.keys import OKPKey, EC2Key
 from cose.keys.keyops import EncryptOp
