@@ -7,7 +7,7 @@ from asn1crypto.x509 import Certificate
 from cose import headers
 from cose.curves import X448, X25519
 from cose.headers import KID
-from cose.keys import OKPKey
+from cose.keys import OKPKey, EC2Key
 from cose.keys.keyops import EncryptOp
 from cose.messages import Enc0Message, Sign1Message
 
@@ -140,8 +140,7 @@ class Initiator(EdhocRole):
         if self.cipher_suite.dh_curve in [X448, X25519]:
             return OKPKey(x=self.g_x, crv=self.cipher_suite.dh_curve)
         else:
-            # TODO:
-            pass
+            return EC2Key(x=self.g_x, crv=self.cipher_suite.dh_curve)
 
     @property
     def remote_pubkey(self) -> RPK:
@@ -150,8 +149,7 @@ class Initiator(EdhocRole):
         if self.cipher_suite.dh_curve in [X448, X25519]:
             return OKPKey(x=self.g_y, crv=self.cipher_suite.dh_curve)
         else:
-            # TODO:
-            pass
+            return EC2Key(x=self.g_y, crv=self.cipher_suite.dh_curve)
 
     @property
     def local_authkey(self) -> RPK:

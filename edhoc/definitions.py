@@ -3,8 +3,8 @@ from enum import IntEnum, unique
 from typing import Callable, Any, TypeVar, NamedTuple
 
 import cbor2
-from cose.algorithms import AESCCM1664128, Sha256, EdDSA, AESCCM16128128, Es256
-from cose.curves import X25519, Ed25519, P256
+from cose.algorithms import AESCCM1664128, Sha256, EdDSA, AESCCM16128128, Es256, A128GCM, A256GCM, Sha384, Es384
+from cose.curves import X25519, Ed25519, P256, P384
 
 from edhoc.exceptions import EdhocException
 
@@ -109,6 +109,21 @@ class CipherSuite(ABC):
     def __repr__(self):
         return f'<{self.fullname}: {self.identifier}>'
 
+    @classmethod
+    def check_identifiers(cls):
+        """Return the algorithm names for the suite in the sequence in which
+        they are printed in the EDHOC specification, for easy validation of the
+        classes."""
+        return (
+                cls.aead.identifier,
+                cls.hash.identifier,
+                cls.dh_curve.identifier,
+                cls.sign_alg.identifier,
+                cls.sign_curve.identifier,
+                cls.app_aead.identifier,
+                cls.app_hash.identifier,
+                )
+
 
 @CipherSuite.register_ciphersuite()
 class CipherSuite0(CipherSuite):
@@ -164,6 +179,34 @@ class CipherSuite3(CipherSuite):
     sign_curve = P256
     app_aead = AESCCM1664128
     app_hash = Sha256
+
+@CipherSuite.register_ciphersuite()
+class CipherSuite4(CipherSuite):
+    identifier = 4
+    fullname = "SUITE_4"
+
+    aead = A128GCM
+    hash = Sha256
+    dh_curve = X25519
+    sign_alg = Es256
+    sign_curve = P256
+    app_aead = A128GCM
+    app_hash = Sha256
+assert CipherSuite4.check_identifiers() == (1, -16, 4, -7, 1, 1, -16)
+
+@CipherSuite.register_ciphersuite()
+class CipherSuite5(CipherSuite):
+    identifier = 5
+    fullname = "SUITE_5"
+
+    aead = A256GCM
+    hash = Sha384
+    dh_curve = P384
+    sign_alg = Es384
+    sign_curve = P384
+    app_aead = A256GCM
+    app_hash = Sha384
+assert CipherSuite5.check_identifiers() == (3, -43, 2, -35, 2, 3, -43)
 
 
 class EdhocKDFInfo(NamedTuple):

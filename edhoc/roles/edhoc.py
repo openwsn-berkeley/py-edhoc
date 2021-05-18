@@ -127,20 +127,23 @@ class EdhocRole(metaclass=ABCMeta):
         if public_key.crv == X25519:
             d = X25519PrivateKey.from_private_bytes(private_key.d)
             x = X25519PublicKey.from_public_bytes(public_key.x)
+            secret = d.exchange(x)
         elif public_key.crv == X448:
             d = X448PrivateKey.from_private_bytes(private_key.d)
 
             x = X448PublicKey.from_public_bytes(public_key.x)
+            secret = d.exchange(x)
         elif public_key.crv == P256:
             d = ec.derive_private_key(int(hexlify(private_key.d), 16), SECP256R1(), default_backend())
 
             x = ec.EllipticCurvePublicNumbers(int(hexlify(public_key.x), 16),
                                               int(hexlify(public_key.y), 16),
                                               SECP256R1())
+            x = x.public_key()
+            secret = d.exchange(ec.ECDH(), x)
         else:
             raise CoseIllegalCurve(f"{public_key.crv} is unsupported")
 
-        secret = d.exchange(x)
         return secret
 
     @property
