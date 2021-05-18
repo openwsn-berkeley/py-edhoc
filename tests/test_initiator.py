@@ -1,9 +1,14 @@
+import warnings
+
 import cbor2
 from cose.keys import OKPKey
 
 from edhoc.definitions import CipherSuite
 from edhoc.messages import MessageTwo, MessageOne, MessageThree
 
+class NoRemoteKey(UserWarning):
+    def __str__(self):
+        return "Skipping verification for lack of auth key"
 
 def test_initiator_message1(initiator, test_vectors):
     assert initiator.corr == test_vectors['S']['corr']
@@ -38,6 +43,8 @@ def test_initiator_message3(initiator, test_vectors):
     assert initiator._hkdf3(16, 'K_3m', initiator._prk4x3m) == test_vectors['S']['k_3m']
     assert initiator._hkdf3(13, 'IV_3m', initiator._prk4x3m) == test_vectors['S']['iv_3m']
     assert initiator._mac(
+        initiator.cred_idi,
+        initiator.cred,
         initiator._hkdf3,
         'K_3m',
         16,
@@ -52,12 +59,19 @@ def test_initiator_message3(initiator, test_vectors):
     assert initiator._hkdf3(13, 'IV_3ae', initiator._prk3e2m) == test_vectors['S']['iv_3ae']
     assert initiator.ciphertext_3 == test_vectors['S']['ciphertext_3']
 
+    if initiator.remote_authkey is None:
+        warnings.warn(NoRemoteKey())
+        return
     assert initiator.create_message_three(test_vectors['S']['message_2']) == test_vectors['S']['message_3']
 
 
 def test_initiator_finalize(initiator, test_vectors):
     initiator.msg_1 = MessageOne.decode(initiator.create_message_one())
     initiator.msg_2 = MessageTwo.decode(test_vectors['S']['message_2'])
+    if getattr(initiator, 'remote_authkey', None) is None:
+        warnings.warn(NoRemoteKey())
+        return
+
     initiator.msg_3 = MessageThree.decode(initiator.create_message_three(test_vectors['S']['message_2']))
 
     c_i, c_r, app_aead, app_hash = initiator.finalize()

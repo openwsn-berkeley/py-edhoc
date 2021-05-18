@@ -70,8 +70,6 @@ class EdhocRole(metaclass=ABCMeta):
         self.supported_ciphers = supported_ciphers
 
         self.remote_cred_cb = remote_cred_cb
-        self._remote_authkey = None
-        self._remote_cred = None
 
         self._conn_id = conn_id
         self.aad1_cb = aad1_cb
@@ -95,16 +93,13 @@ class EdhocRole(metaclass=ABCMeta):
         return transcript.finalize()
 
     def _signature_or_mac(self, mac: bytes, transcript: bytes, aad_cb: Callable[..., bytes]) -> bytes:
-
-        role = 'I' if type(self).__name__ == 'Initiator' else 'R'
-
-        if not self.is_static_dh(role):
+        if not self.is_static_dh(self.role):
             cose_sign = Sign1Message(
                 phdr=self.cred_id,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=mac,
                 key=self.auth_key,
-                external_aad=self._external_aad(transcript, aad_cb))
+                external_aad=self._external_aad(self.cred, transcript, aad_cb))
             return cose_sign.compute_signature()
         else:
             return mac
@@ -236,16 +231,6 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def remote_cred(self) -> Union[RPK, Certificate]:
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def remote_authkey(self) -> RPK:
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
     def cipher_suite(self) -> 'CS':
         raise NotImplementedError()
 
@@ -325,6 +310,8 @@ class EdhocRole(metaclass=ABCMeta):
         raise NotImplementedError()
 
     def _mac(self,
+             cred_id: CoseHeaderMap,
+             cred,
              hkdf: Callable,
              key_label: str,
              key_len: int,
@@ -339,11 +326,11 @@ class EdhocRole(metaclass=ABCMeta):
 
         # calculate the mac using a COSE_Encrypt0 message
         return Enc0Message(
-            phdr=self.cred_id,
+            phdr=cred_id,
             uhdr={headers.IV: iv_bytes, headers.Algorithm: self.cipher_suite.aead},
             payload=b'',
             key=cose_key,
-            external_aad=self._external_aad(th_input, aad_cb)
+            external_aad=self._external_aad(cred, th_input, aad_cb)
         ).encrypt()
 
     def _create_cose_key(self, hkdf, key_len: int, label: str, prk: bytes, ops: List[Type['KEYOPS']]) -> SymmetricKey:
@@ -352,16 +339,23 @@ class EdhocRole(metaclass=ABCMeta):
             optional_params={KpKeyOps: ops, KpAlg: self.cipher_suite.aead}
         )
 
-    def _external_aad(self, transcript: bytes, aad_cb: Callable[..., bytes]) -> CBOR:
+    def _external_aad(self, cred: Union[Certificate, RPK], transcript: bytes, aad_cb: Callable[..., bytes]) -> CBOR:
+        """Build an unserialized external AAD out of a transcript hash, a cred
+        and AAD data.
 
-        if isinstance(self.cred, OKPKey) or isinstance(self.cred, EC2Key):
-            encoded_credential = self.cred.encode()
-        elif isinstance(self.cred, Certificate):
-            encoded_credential = cbor2.dumps(self.cred.tbs_certificate_bytes)
+        As its format is shared among messages, the cred needs to be picked
+        suitably for the message (CRED_R in message 2, CRED_I in message 3);
+        depending on whether this is used in a creating or a verifying
+        capacity, self.cred or self.remote_cred needs to be passed in.
+        """
+        if isinstance(cred, OKPKey) or isinstance(cred, EC2Key):
+            encoded_credential = cred.encode()
+        elif isinstance(cred, Certificate):
+            encoded_credential = cbor2.dumps(cred.tbs_certificate_bytes)
         else:
             # TODO: this shouldn't be here, but since somes of the test vectors are not real certificates we need
             #  this hack
-            encoded_credential = cbor2.dumps(self.cred)
+            encoded_credential = cbor2.dumps(cred)
 
         aad = [cbor2.dumps(self.transcript(self.cipher_suite.hash.hash_cls, transcript)), encoded_credential]
 
@@ -373,15 +367,6 @@ class EdhocRole(metaclass=ABCMeta):
 
         aad = b"".join(aad)
         return aad
-
-    def _verify_signature(self, signature: bytes) -> bool:
-        _ = signature
-
-        if self.remote_cred_cb is None:
-            return True
-        else:
-            # TODO: needs valid CBOR certificate decoding
-            return True
 
     @abstractmethod
     def _decrypt(self, ciphertext: bytes) -> bool:
@@ -446,3 +431,6 @@ class EdhocRole(metaclass=ABCMeta):
     @classmethod
     def _custom_cbor_encoder(cls, encoder, cose_attribute: 'CoseHeaderAttribute'):
         encoder.encode(cose_attribute.identifier)
+
+    def _populate_remote_details(self, remote_cred_id):
+        self.remote_cred, self.remote_authkey = self._parse_credentials(self.remote_cred_cb(remote_cred_id))

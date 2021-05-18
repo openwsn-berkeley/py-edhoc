@@ -1,3 +1,5 @@
+import warnings
+
 import cbor2
 from cose.headers import KID
 from cose.keys import OKPKey
@@ -6,6 +8,9 @@ from edhoc.definitions import CipherSuite
 from edhoc.messages import MessageThree, MessageTwo, EdhocMessage
 from edhoc.messages.message1 import MessageOne
 
+class NoRemoteKey(UserWarning):
+    def __str__(self):
+        return "Skipping verification for lack of auth key"
 
 def test_responder_message2(responder, test_vectors):
     responder.msg_1 = MessageOne.decode(test_vectors['S']['message_1'])
@@ -24,6 +29,8 @@ def test_responder_message2(responder, test_vectors):
     assert responder._hkdf2(16, 'K_2m', prk=responder._prk3e2m) == test_vectors['S']['k_2m']
     assert responder._hkdf2(13, 'IV_2m', prk=responder._prk3e2m) == test_vectors['S']['iv_2m']
     assert responder._mac(
+        responder.cred_idr,
+        responder.cred,
         responder._hkdf2,
         'K_2m',
         16,
@@ -53,6 +60,9 @@ def test_responder_finalize(responder, test_vectors):
         assert decoded[0] == cbor2.loads(test_vectors['I']['cred_id'])
     assert decoded[1] == test_vectors['S']['signature_3']
 
+    if getattr(responder, 'remote_authkey', None) is None:
+        warnings.warn(NoRemoteKey())
+        return
     c_i, c_r, app_aead, app_hash = responder.finalize(test_vectors['S']['message_3'])
 
     assert c_i == test_vectors['I']['conn_id']

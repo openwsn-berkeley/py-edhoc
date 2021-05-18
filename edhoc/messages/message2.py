@@ -64,9 +64,9 @@ class MessageTwo(EdhocMessage):
 
     def __repr__(self) -> str:
         if self.conn_idi != b'':
-            output = f'<MessageOne: [{self.conn_idi}, {EdhocMessage._truncate(self.g_y)}, {self.conn_idr}, ' \
+            output = f'<MessageTwo: [{self.conn_idi}, {EdhocMessage._truncate(self.g_y)}, {self.conn_idr}, ' \
                      f'{self.ciphertext}>'
         else:
-            output = f'<MessageOne: [{EdhocMessage._truncate(self.g_y)}, {self.conn_idr}, {self.ciphertext}>'
+            output = f'<MessageTwo: [{EdhocMessage._truncate(self.g_y)}, {self.conn_idr}, {self.ciphertext}>'
 
         return output

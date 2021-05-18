@@ -9,7 +9,7 @@ from cose.curves import X25519, X448
 from cose.headers import KID
 from cose.keys import OKPKey
 from cose.keys.keyops import DecryptOp
-from cose.messages import Enc0Message
+from cose.messages import Enc0Message, Sign1Message
 
 from edhoc.definitions import CipherSuite, Correlation, EdhocState
 from edhoc.exceptions import EdhocException
@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 
 
 class Responder(EdhocRole):
+    role = 'R'
+    remote_role = 'I'
+
     def __init__(self,
                  cred: Union[RPK, Certificate],
                  cred_idr: CoseHeaderMap,
@@ -61,8 +64,6 @@ class Responder(EdhocRole):
                          aad2_cb,
                          aad3_cb,
                          ephemeral_key)
-
-        self._cred_idi = None
 
     @property
     def cipher_suite(self) -> 'CS':
@@ -112,6 +113,16 @@ class Responder(EdhocRole):
     def cred_idi(self) -> CoseHeaderMap:
         return self._cred_idi
 
+    @cred_idi.setter
+    def cred_idi(self, value):
+        if isinstance(value, int):
+            value = {4: EdhocMessage.decode_bstr_id(value)}
+        elif isinstance(value, bytes):
+            value = {4: value}
+
+        self._cred_idi = value
+        self._populate_remote_details(value)
+
     @property
     def cred_idr(self) -> CoseHeaderMap:
         return self.cred_id
@@ -160,20 +171,6 @@ class Responder(EdhocRole):
     def local_authkey(self) -> RPK:
         return self._local_authkey
 
-    @property
-    def remote_cred(self) -> Union[RPK, Certificate]:
-        if self._remote_authkey is None or self._remote_cred is None:
-            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idi)
-
-        return self._remote_cred
-
-    @property
-    def remote_authkey(self) -> RPK:
-        if self._remote_authkey is None or self._remote_cred is None:
-            self._remote_cred, self._remote_authkey = self.remote_cred_cb(self.cred_idi)
-
-        return self._remote_cred
-
     def signature_or_mac2(self, mac_2: bytes):
         return self._signature_or_mac(mac_2, self._th2_input, self.aad2_cb)
 
@@ -220,9 +217,9 @@ class Responder(EdhocRole):
 
         decoded = EdhocMessage.decode(self._decrypt(self.msg_3.ciphertext))
 
-        self._cred_idi = decoded[0]
+        self.cred_idi = decoded[0]
 
-        if not self._verify_signature(signature=decoded[1]):
+        if not self._verify_signature_or_mac3(signature_or_mac3=decoded[1]):
             return MessageError(err_msg='').encode()
 
         try:
@@ -239,6 +236,23 @@ class Responder(EdhocRole):
 
         return self.msg_1.conn_idi, self._conn_id, app_aead.identifier, app_hash.identifier
 
+    def _verify_signature_or_mac3(self, signature_or_mac3: bytes) -> bool:
+        mac_3 = self._mac(self.cred_idi, self.remote_cred, self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
+
+        if not self.is_static_dh(self.remote_role):
+            external_aad = self._external_aad(self.remote_cred, self._th3_input, self.aad3_cb)
+            cose_sign = Sign1Message(
+                phdr=self.cred_idi,
+                uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
+                payload=mac_3,
+                external_aad=external_aad)
+            # FIXME peeking into internals (probably best resolved at pycose level)
+            cose_sign.key = self.remote_authkey
+            cose_sign._signature = signature_or_mac3
+            return cose_sign.verify_signature()
+        else:
+            return signature_or_mac3 == mac_3
+
     @property
     def _hkdf2(self) -> Callable:
         return functools.partial(super()._hkdf_expand, transcript=self._th2_input)
@@ -251,7 +265,7 @@ class Responder(EdhocRole):
     def _p_2e(self):
         # compute MAC_2
         # TODO: resolve magic key and IV lengths
-        mac_2 = self._mac(self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
+        mac_2 = self._mac(self.cred_idr, self.cred, self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
 
         # compute the signature_or_mac2
         signature = self.signature_or_mac2(mac_2)
