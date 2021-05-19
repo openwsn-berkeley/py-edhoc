@@ -5,7 +5,7 @@ from typing import List, Callable, Optional, Union, Tuple, TYPE_CHECKING, Type
 import cbor2
 from asn1crypto.x509 import Certificate
 from cose import headers
-from cose.curves import X25519, X448
+from cose.keys.curves import X25519, X448
 from cose.headers import KID
 from cose.keys import OKPKey, EC2Key
 from cose.keys.keyops import DecryptOp
@@ -220,7 +220,7 @@ class Responder(EdhocRole):
         self.cred_idi = decoded[0]
 
         if not self._verify_signature_or_mac3(signature_or_mac3=decoded[1]):
-            return MessageError(err_msg='').encode()
+            return MessageError(err_msg='Signature verification failed').encode()
 
         try:
             ad_3 = decoded[2]

@@ -5,8 +5,8 @@ from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKI
 
 import cbor2
 from cose import headers
-from cose.curves import X25519, X448, P256
-from cose.exceptions import CoseIllegalCurve
+from cose.keys.curves import X25519, X448, P256, P384
+from cose.exceptions import CoseUnsupportedCurve
 from cose.headers import CoseHeaderAttribute
 from cose.keys import OKPKey, EC2Key, SymmetricKey
 from cose.keys.keyops import EncryptOp
@@ -15,7 +15,6 @@ from cose.messages import Sign1Message, Enc0Message
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey, X448PrivateKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
@@ -133,16 +132,17 @@ class EdhocRole(metaclass=ABCMeta):
 
             x = X448PublicKey.from_public_bytes(public_key.x)
             secret = d.exchange(x)
-        elif public_key.crv == P256:
-            d = ec.derive_private_key(int(hexlify(private_key.d), 16), SECP256R1(), default_backend())
+        elif public_key.crv in (P256, P384):
+            curve_obj = public_key.crv.curve_obj()
+            d = ec.derive_private_key(int(hexlify(private_key.d), 16), curve_obj, default_backend())
 
             x = ec.EllipticCurvePublicNumbers(int(hexlify(public_key.x), 16),
                                               int(hexlify(public_key.y), 16),
-                                              SECP256R1())
+                                              curve_obj)
             x = x.public_key()
             secret = d.exchange(ec.ECDH(), x)
         else:
-            raise CoseIllegalCurve(f"{public_key.crv} is unsupported")
+            raise CoseUnsupportedCurve(f"{public_key.crv} is unsupported")
 
         return secret
 
