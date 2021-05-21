@@ -237,7 +237,8 @@ class Responder(EdhocRole):
         return self.msg_1.conn_idi, self._conn_id, app_aead.identifier, app_hash.identifier
 
     def _verify_signature_or_mac3(self, signature_or_mac3: bytes) -> bool:
-        mac_3 = self._mac(self.cred_idi, self.remote_cred, self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
+        mac_3 = self._mac(self.cred_idi, self.remote_cred, self._hkdf3, 'K_3m', 16,
+                          'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
 
         if not self.is_static_dh(self.remote_role):
             external_aad = self._external_aad(self.remote_cred, self._th3_input, self.aad3_cb)
@@ -265,7 +266,8 @@ class Responder(EdhocRole):
     def _p_2e(self):
         # compute MAC_2
         # TODO: resolve magic key and IV lengths
-        mac_2 = self._mac(self.cred_idr, self.cred, self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
+        mac_2 = self._mac(self.cred_idr, self.cred, self._hkdf2, 'K_2m', 16,
+                          'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
 
         # compute the signature_or_mac2
         signature = self.signature_or_mac2(mac_2)

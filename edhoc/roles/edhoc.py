@@ -29,7 +29,6 @@ if TYPE_CHECKING:
     from edhoc.definitions import CS
     from cose.keys.keyops import KEYOPS
     from cose.keys.cosekey import CK
-    from cose.headers import CoseHeaderAttribute
 
 RPK = Union[EC2Key, OKPKey]
 CBOR = bytes

@@ -180,6 +180,7 @@ class CipherSuite3(CipherSuite):
     app_aead = AESCCM1664128
     app_hash = Sha256
 
+
 @CipherSuite.register_ciphersuite()
 class CipherSuite4(CipherSuite):
     identifier = 4
@@ -192,7 +193,8 @@ class CipherSuite4(CipherSuite):
     sign_curve = P256
     app_aead = A128GCM
     app_hash = Sha256
-assert CipherSuite4.check_identifiers() == (1, -16, 4, -7, 1, 1, -16)
+assert CipherSuite4.check_identifiers() == (1, -16, 4, -7, 1, 1, -16)  # noqa: E305
+
 
 @CipherSuite.register_ciphersuite()
 class CipherSuite5(CipherSuite):
@@ -206,7 +208,7 @@ class CipherSuite5(CipherSuite):
     sign_curve = P384
     app_aead = A256GCM
     app_hash = Sha384
-assert CipherSuite5.check_identifiers() == (3, -43, 2, -35, 2, 3, -43)
+assert CipherSuite5.check_identifiers() == (3, -43, 2, -35, 2, 3, -43)  # noqa: E305
 
 
 class EdhocKDFInfo(NamedTuple):
