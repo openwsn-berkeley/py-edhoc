@@ -6,7 +6,7 @@ from typing import List
 
 import cbor2
 from cose.algorithms import Es256
-from cose.curves import Ed448, Ed25519, X25519, X448, P256
+from cose.keys.curves import Ed448, Ed25519, X25519, X448, P256
 from cose.keys import EC2Key, OKPKey, CoseKey
 from cose.keys.keyparam import KpAlg
 from pytest import fixture

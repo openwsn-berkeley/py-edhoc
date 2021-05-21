@@ -5,7 +5,7 @@ from typing import List, Optional, Callable, Union, Tuple, TYPE_CHECKING, Type
 import cbor2
 from asn1crypto.x509 import Certificate
 from cose import headers
-from cose.curves import X448, X25519
+from cose.keys.curves import X448, X25519
 from cose.headers import KID
 from cose.keys import OKPKey, EC2Key
 from cose.keys.keyops import EncryptOp
@@ -201,7 +201,8 @@ class Initiator(EdhocRole):
         return self.msg_3.encode(self.corr)
 
     def _verify_signature_or_mac2(self, signature_or_mac2: bytes) -> bool:
-        mac_2 = self._mac(self.cred_idr, self.remote_cred, self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
+        mac_2 = self._mac(self.cred_idr, self.remote_cred, self._hkdf2, 'K_2m', 16,
+                          'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
 
         if not self.is_static_dh(self.remote_role):
             external_aad = self._external_aad(self.remote_cred, self._th2_input, self.aad2_cb)
@@ -277,7 +278,8 @@ class Initiator(EdhocRole):
     @property
     def _p_3ae(self):
         # TODO: resolve magic key and IV lengths
-        mac_3 = self._mac(self.cred_idi, self.cred, self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
+        mac_3 = self._mac(self.cred_idi, self.cred, self._hkdf3, 'K_3m', 16,
+                          'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
 
         signature = self.signature_or_mac3(mac_3)
 

@@ -10,7 +10,7 @@ import aiocoap
 import aiocoap.resource as resource
 from cose import headers
 from cose.algorithms import Sha256Trunc64
-from cose.curves import Ed25519, X25519
+from cose.keys.curves import Ed25519, X25519
 from cose.extensions.x509 import X5T
 from cose.keys import OKPKey
 from cryptography import x509
