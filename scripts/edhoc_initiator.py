@@ -10,7 +10,7 @@ from aiocoap import Context, Message
 from aiocoap.numbers.codes import Code
 from cose import headers
 from cose.algorithms import Sha256Trunc64
-from cose.curves import X25519, Ed25519
+from cose.keys.curves import X25519, Ed25519
 from cose.extensions.x509 import X5T
 from cose.keys import OKPKey
 from cryptography import x509

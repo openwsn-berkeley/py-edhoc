@@ -4,7 +4,7 @@ from typing import Callable, Any, TypeVar, NamedTuple
 
 import cbor2
 from cose.algorithms import AESCCM1664128, Sha256, EdDSA, AESCCM16128128, Es256, A128GCM, A256GCM, Sha384, Es384
-from cose.curves import X25519, Ed25519, P256, P384
+from cose.keys.curves import X25519, Ed25519, P256, P384
 
 from edhoc.exceptions import EdhocException
 
