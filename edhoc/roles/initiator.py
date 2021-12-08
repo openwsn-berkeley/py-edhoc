@@ -5,7 +5,7 @@ from typing import List, Optional, Callable, Union, Tuple, TYPE_CHECKING, Type
 import cbor2
 from asn1crypto.x509 import Certificate
 from cose import headers
-from cose.curves import X448, X25519, Ed25519
+from cose.curves import X448, X25519
 from cose.headers import KID
 from cose.keys import OKPKey, EC2Key
 from cose.keys.keyops import EncryptOp
@@ -209,9 +209,9 @@ class Initiator(EdhocRole):
                 phdr=self.cred_idr,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=mac_2,
+                key=self.remote_authkey,
                 external_aad=external_aad)
             # FIXME peeking into internals (probably best resolved at pycose level)
-            cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac2
             return cose_sign.verify_signature()
         else:

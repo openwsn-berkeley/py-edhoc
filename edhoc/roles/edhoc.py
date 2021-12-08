@@ -423,12 +423,14 @@ class EdhocRole(metaclass=ABCMeta):
         if isinstance(cred, EC2Key) or isinstance(cred, OKPKey):
             cred, auth_key = cred, cred
         elif isinstance(cred, Certificate):
-            cred, auth_key = cred, cred.public_key()
+            cred, auth_key = cred, cred.public_key().public_bytes(serialization.Encoding.Raw,
+                                                                  serialization.PublicFormat.Raw)
             if isinstance(cred.public_key(), _Ed25519PublicKey):
-                auth_key = OKPKey(crv=Ed25519, x=auth_key.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
+                auth_key = OKPKey(crv=Ed25519, x=auth_key)
+            elif isinstance(cred.public_key(), SECP256R1):
+                auth_key = EC2Key(crv=P256, x=auth_key)
             else:
-                cred, auth_key = cred, cred.public_key().public_bytes(serialization.Encoding.Raw,
-                                                                      serialization.PublicFormat.Raw)
+                raise EdhocException("Invalid credentials")
         elif isinstance(cred, tuple):
             cred, auth_key = cred
         else:
