@@ -5,7 +5,7 @@ from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKI
 
 import cbor2
 from cose import headers
-from cose.curves import X25519, X448, P256
+from cose.curves import X25519, X448, P256, Ed25519
 from cose.exceptions import CoseIllegalCurve
 from cose.headers import CoseHeaderAttribute
 from cose.keys import OKPKey, EC2Key, SymmetricKey
@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+from cryptography.hazmat.backends.openssl.ed25519 import _Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey, X448PrivateKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
 from cryptography.x509 import Certificate
@@ -422,8 +423,12 @@ class EdhocRole(metaclass=ABCMeta):
         if isinstance(cred, EC2Key) or isinstance(cred, OKPKey):
             cred, auth_key = cred, cred
         elif isinstance(cred, Certificate):
-            cred, auth_key = cred, cred.public_key().public_bytes(serialization.Encoding.Raw,
-                                                                  serialization.PublicFormat.Raw)
+            cred, auth_key = cred, cred.public_key()
+            if isinstance(cred.public_key(), _Ed25519PublicKey):
+                auth_key = OKPKey(crv=Ed25519, x=auth_key.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
+            else:
+                cred, auth_key = cred, cred.public_key().public_bytes(serialization.Encoding.Raw,
+                                                                      serialization.PublicFormat.Raw)
         elif isinstance(cred, tuple):
             cred, auth_key = cred
         else:

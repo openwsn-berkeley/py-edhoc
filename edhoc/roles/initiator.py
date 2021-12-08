@@ -211,8 +211,7 @@ class Initiator(EdhocRole):
                 payload=mac_2,
                 external_aad=external_aad)
             # FIXME peeking into internals (probably best resolved at pycose level)
-            # FIXME should handle different key types
-            cose_sign.key = OKPKey(crv=Ed25519, x=self.remote_authkey)
+            cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac2
             return cose_sign.verify_signature()
         else:
