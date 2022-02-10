@@ -38,8 +38,11 @@ class EdhocMessage(metaclass=ABCMeta):
             return conn_id
 
     @staticmethod
-    def decode_bstr_id(conn_id: int) -> bytes:
-        return int(conn_id + 24).to_bytes(1, byteorder="big")
+    def decode_bstr_id(conn_id: Union[int, bytes]) -> bytes:
+        if isinstance(conn_id, int):
+            return int(conn_id + 24).to_bytes(1, byteorder="big")
+        else:
+            return conn_id
 
     @classmethod
     def _truncate(cls, payload: bytes):
