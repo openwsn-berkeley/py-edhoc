@@ -7,8 +7,6 @@ from edhoc.messages.base import EdhocMessage
 
 
 class MessageThree(EdhocMessage):
-    CIPHERTEXT = -1
-
     @classmethod
     def decode(cls, received) -> 'MessageThree':
         """
@@ -19,7 +17,7 @@ class MessageThree(EdhocMessage):
         """
 
         decoded = super().decode(received)
-        ciphertext = decoded[cls.CIPHERTEXT]
+        (ciphertext,) = decoded
 
         return cls(ciphertext)
 

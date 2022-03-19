@@ -12,12 +12,6 @@ if TYPE_CHECKING:
 
 
 class MessageOne(EdhocMessage):
-    METHOD_CORR = 0
-    CIPHERS = 1
-    G_X = 2
-    CONN_ID = 3
-    AAD1 = 4
-
     @classmethod
     def decode(cls, received) -> 'MessageOne':
         """
@@ -31,20 +25,16 @@ class MessageOne(EdhocMessage):
 
         decoded = super().decode(received)
 
-        method_corr = decoded[cls.METHOD_CORR]
+        (method_corr, ciphers, g_x, conn_idi, *aad) = decoded
 
-        if isinstance(decoded[cls.CIPHERS], int):
-            selected_cipher = decoded[cls.CIPHERS]
-            supported_ciphers = [decoded[cls.CIPHERS]]
+        if isinstance(ciphers, int):
+            selected_cipher = ciphers
+            supported_ciphers = [ciphers]
         elif isinstance(decoded[cls.CIPHERS], list):
-            selected_cipher = decoded[cls.CIPHERS][0]
-            supported_ciphers = decoded[cls.CIPHERS][1:]
+            selected_cipher = ciphers[0]
+            supported_ciphers = ciphers[1:]
         else:
             raise EdhocInvalidMessage("Failed to decode bytes as MessageOne")
-
-        g_x = decoded[cls.G_X]
-
-        conn_idi = decoded[cls.CONN_ID]
 
         msg = cls(
             method_corr=method_corr,
@@ -53,10 +43,8 @@ class MessageOne(EdhocMessage):
             g_x=g_x,
             conn_idi=conn_idi)
 
-        try:
-            msg.aad1 = decoded[cls.AAD1]
-        except IndexError:
-            pass
+        if aad:
+            raise NotImplementedError("AAD changed")
 
         return msg
 
