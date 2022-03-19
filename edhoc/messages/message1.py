@@ -12,12 +12,11 @@ if TYPE_CHECKING:
 
 
 class MessageOne(EdhocMessage):
-    C_1 = 0
-    METHOD_CORR = 1
-    CIPHERS = 2
-    G_X = 3
-    CONN_ID = 4
-    AAD1 = 5
+    METHOD_CORR = 0
+    CIPHERS = 1
+    G_X = 2
+    CONN_ID = 3
+    AAD1 = 4
 
     @classmethod
     def decode(cls, received) -> 'MessageOne':
@@ -33,9 +32,6 @@ class MessageOne(EdhocMessage):
         decoded = super().decode(received)
 
         method_corr = decoded[cls.METHOD_CORR]
-
-        if decoded[cls.C_1] is not None:
-            raise EdhocInvalidMessage("No leading nil")
 
         if isinstance(decoded[cls.CIPHERS], int):
             selected_cipher = decoded[cls.CIPHERS]
@@ -113,9 +109,10 @@ class MessageOne(EdhocMessage):
         else:
             raise ValueError('Cipher suite list must contain at least 1 item.')
 
-        msg = [None, self.method_corr, suites, self.g_x, self.encode_bstr_id(self.conn_idi)]
+        msg = [self.method_corr, suites, self.g_x, self.encode_bstr_id(self.conn_idi)]
 
         if self.aad1 != b'':
+            raise NotImplementedError("AAD stuff changed")
             msg.append(cbor2.dumps(self.aad1))
 
         return b"".join(cbor2.dumps(chunk) for chunk in msg)
