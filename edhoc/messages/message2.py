@@ -10,12 +10,8 @@ if TYPE_CHECKING:
 
 
 class MessageTwo(EdhocMessage):
-    CIPHERTEXT = -1
-    CONN_ID_R = -2
-    G_Y = -3
-
     @classmethod
-    def decode(cls, received) -> 'MessageTwo':
+    def decode(cls, received, *, suite) -> 'MessageTwo':
         """
         Tries to decode the bytes as an EDHOC MessageTwo object
 
@@ -24,9 +20,12 @@ class MessageTwo(EdhocMessage):
         """
 
         decoded = super().decode(received)
-        ciphertext = decoded[cls.CIPHERTEXT]
-        conn_idr = decoded[cls.CONN_ID_R]
-        g_y = decoded[cls.G_Y]
+        (g_y_ciphertext, conn_idr) = decoded
+
+        # FIXME: See create_message_two comment on the same property
+        N = suite.dh_curve.size
+        g_y = g_y_ciphertext[:N]
+        ciphertext = g_y_ciphertext[N:]
 
         return cls(g_y, conn_idr, ciphertext)
 
@@ -50,7 +49,7 @@ class MessageTwo(EdhocMessage):
     def encode(self, corr: Correlation) -> bytes:
         """ Encode EDHOC message 2. """
 
-        return b''.join([self.data_2(self.g_y, self.conn_idr, corr), cbor2.dumps(self.ciphertext)])
+        return b''.join(cbor2.dumps(p) for p in (self.g_y + self.ciphertext, self.conn_idr))
 
     def __repr__(self) -> str:
         output = f'<MessageTwo: [{EdhocMessage._truncate(self.g_y)}, {self.conn_idr}, {self.ciphertext}>'

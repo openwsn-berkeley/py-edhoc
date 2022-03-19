@@ -200,6 +200,8 @@ class Responder(EdhocRole):
         self.msg_2 = MessageTwo(self.g_y, self.conn_idr, self.ciphertext_2)
 
         self._internal_state = EdhocState.MSG_2_SENT
+        # FIXME: Verify that "size" is actually what gives the g_y len -- only checked here because I'm unsure it is, and at least things will fail in a understandable place if that was wrong
+        assert len(self.msg_2.g_y) == self.cipher_suite.dh_curve.size
         return self.msg_2.encode(self.corr)
 
     def finalize(self, message_three: bytes) -> Union[Tuple[bytes, bytes, int, int], bytes]:

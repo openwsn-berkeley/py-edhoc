@@ -175,7 +175,7 @@ class Initiator(EdhocRole):
 
     def create_message_three(self, message_two: bytes):
 
-        self.msg_2 = MessageTwo.decode(message_two)
+        self.msg_2 = MessageTwo.decode(message_two, suite=self.cipher_suite)
 
         self._internal_state = EdhocState.MSG_2_RCVD
 
