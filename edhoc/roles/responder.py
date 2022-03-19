@@ -174,7 +174,7 @@ class Responder(EdhocRole):
     def signature_or_mac2(self, mac_2: bytes):
         return self._signature_or_mac(mac_2, self._th2_input, self.aad2_cb)
 
-    def create_message_two(self, message_one: bytes) -> bytes:
+    def create_message_two(self, message_one: MessageOne) -> bytes:
         """
         Decodes an incoming EDHOC message 1 and creates and EDHOC message 2 or error message based on the content
         of message 1.
@@ -183,7 +183,7 @@ class Responder(EdhocRole):
         :returns: Bytes of an EDHOC message 2 or an EDHOC error message.
         """
 
-        self.msg_1 = MessageOne.decode(message_one)
+        self.msg_1 = message_one
 
         self._internal_state = EdhocState.MSG_1_RCVD
 
