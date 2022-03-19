@@ -194,11 +194,11 @@ class Initiator(EdhocRole):
         except IndexError:
             pass
 
-        self.msg_3 = MessageThree(self.ciphertext_3, self.conn_idr)
+        self.msg_3 = MessageThree(self.ciphertext_3)
 
         self._internal_state = EdhocState.MSG_3_SENT
 
-        return self.msg_3.encode(self.corr)
+        return self.msg_3.encode()
 
     def _verify_signature_or_mac2(self, signature_or_mac2: bytes) -> bool:
         mac_2 = self._mac(self.cred_idr, self.remote_cred, self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
