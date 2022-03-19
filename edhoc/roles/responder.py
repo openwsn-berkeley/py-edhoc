@@ -189,7 +189,7 @@ class Responder(EdhocRole):
         assert len(self.msg_2.g_y) == self.cipher_suite.dh_curve.size
         return self.msg_2.encode()
 
-    def finalize(self, message_three: bytes) -> Union[Tuple[bytes, bytes, int, int], bytes]:
+    def finalize(self, message_three: MessageThree) -> Union[Tuple[bytes, bytes, int, int], bytes]:
         """
         Decodes an incoming EDHOC message 3 and finalizes the key exchange.
 
@@ -198,7 +198,7 @@ class Responder(EdhocRole):
          the initiator and responder's connection identifiers and the application AEAD and hash algorithms.
         """
 
-        self.msg_3 = MessageThree.decode(message_three)
+        self.msg_3 = message_three
 
         self._internal_state = EdhocState.MSG_3_RCVD
 
