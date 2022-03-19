@@ -25,7 +25,7 @@ class MessageTwo(EdhocMessage):
 
         decoded = super().decode(received)
         ciphertext = decoded[cls.CIPHERTEXT]
-        conn_idr = cls.decode_bstr_id(decoded[cls.CONN_ID_R])
+        conn_idr = decoded[cls.CONN_ID_R]
         g_y = decoded[cls.G_Y]
 
         return cls(g_y, conn_idr, ciphertext)
@@ -34,7 +34,7 @@ class MessageTwo(EdhocMessage):
     def data_2(cls, g_y: bytes, conn_idr: bytes, corr: Correlation) -> 'CBOR':
         """ Create the data_2 message part. """
 
-        data_2 = [g_y, EdhocMessage.encode_bstr_id(conn_idr)]
+        data_2 = [g_y, conn_idr]
 
         return b''.join(cbor2.dumps(part) for part in data_2)
 

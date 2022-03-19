@@ -241,10 +241,7 @@ class EdhocRole(metaclass=ABCMeta):
     def data_3(self) -> CBOR:
         """ Create the data_3 message part from EDHOC message 3. """
 
-        if self.conn_idr == b'':
-            return self.conn_idr
-        else:
-            return cbor2.dumps(EdhocMessage.encode_bstr_id(self.conn_idr))
+        return cbor2.dumps(self.conn_idr)
 
     @property
     def data_2(self) -> CBOR:

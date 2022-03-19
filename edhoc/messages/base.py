@@ -36,17 +36,6 @@ class EdhocMessage(metaclass=ABCMeta):
 
         raise NotImplementedError
 
-    @staticmethod
-    def encode_bstr_id(conn_id: bytes) -> Union[int, bytes]:
-        if len(conn_id) == 1:
-            return int.from_bytes(conn_id, byteorder='big') - 24
-        else:
-            return conn_id
-
-    @staticmethod
-    def decode_bstr_id(conn_id: int) -> bytes:
-        return int(conn_id + 24).to_bytes(1, byteorder="big")
-
     @classmethod
     def _truncate(cls, payload: bytes):
         return f'{payload[:5]} ... ({len(payload)} bytes)'

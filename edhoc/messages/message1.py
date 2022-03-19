@@ -44,13 +44,7 @@ class MessageOne(EdhocMessage):
 
         g_x = decoded[cls.G_X]
 
-        if decoded[cls.CONN_ID] != b'':
-            if isinstance(decoded[cls.CONN_ID], int):
-                conn_idi = EdhocMessage.decode_bstr_id(decoded[cls.CONN_ID])
-            else:
-                conn_idi = decoded[cls.CONN_ID]
-        else:
-            conn_idi = b''
+        conn_idi = decoded[cls.CONN_ID]
 
         msg = cls(
             method_corr=method_corr,
@@ -109,7 +103,7 @@ class MessageOne(EdhocMessage):
         else:
             raise ValueError('Cipher suite list must contain at least 1 item.')
 
-        msg = [self.method_corr, suites, self.g_x, self.encode_bstr_id(self.conn_idi)]
+        msg = [self.method_corr, suites, self.g_x, self.conn_idi]
 
         if self.aad1 != b'':
             raise NotImplementedError("AAD stuff changed")
