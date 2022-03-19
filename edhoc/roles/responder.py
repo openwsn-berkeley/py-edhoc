@@ -197,7 +197,7 @@ class Responder(EdhocRole):
 
         self._generate_ephemeral_key()
 
-        self.msg_2 = MessageTwo(self.g_y, self.conn_idr, self.ciphertext_2, self.conn_idi)
+        self.msg_2 = MessageTwo(self.g_y, self.conn_idr, self.ciphertext_2)
 
         self._internal_state = EdhocState.MSG_2_SENT
         return self.msg_2.encode(self.corr)
