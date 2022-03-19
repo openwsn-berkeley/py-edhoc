@@ -25,7 +25,7 @@ class MessageOne(EdhocMessage):
 
         decoded = super().decode(received)
 
-        (method_corr, ciphers, g_x, conn_idi, *aad) = decoded
+        (method, ciphers, g_x, conn_idi, *aad) = decoded
 
         if isinstance(ciphers, int):
             selected_cipher = ciphers
@@ -37,7 +37,7 @@ class MessageOne(EdhocMessage):
             raise EdhocInvalidMessage("Failed to decode bytes as MessageOne")
 
         msg = cls(
-            method_corr=method_corr,
+            method=method,
             selected_cipher=CipherSuite.from_id(selected_cipher),
             cipher_suites=[CipherSuite.from_id(c) for c in supported_ciphers],
             g_x=g_x,
@@ -49,7 +49,7 @@ class MessageOne(EdhocMessage):
         return msg
 
     def __init__(self,
-                 method_corr: int,
+                 method: int,
                  cipher_suites: List['CS'],
                  selected_cipher: Type['CS'],
                  g_x: bytes,
@@ -59,7 +59,7 @@ class MessageOne(EdhocMessage):
         """
         Creates an EDHOC MessageOne object.
 
-        :param method_corr: Combination of the method parameter and correlation parameter (4 * method + correlation)
+        :param method: EDHOC method (indicating who signs / who does static derivation)
         :param cipher_suites: Supported cipher suites (ordered by decreasing preference).
         :param selected_cipher: The preferred cipher suite.
         :param g_x: The ephemeral public key of the Initiator.
@@ -67,17 +67,14 @@ class MessageOne(EdhocMessage):
         :param external_aad: Unprotected opaque auxiliary data (transferred together with EDHOC message 1).
         """
 
-        self.method_corr = method_corr
+        self.method = method
         self.cipher_suites = cipher_suites
         self.selected_cipher = selected_cipher
         self.g_x = g_x
         self.conn_idi = conn_idi
         self.aad1 = external_aad
 
-        self.corr = self.method_corr % 4
-        self.method = (self.method_corr - self.corr) // 4
-
-    def encode(self, corr: Correlation) -> bytes:
+    def encode(self) -> bytes:
         """
         Encodes the first EDHOC message as a CBOR sequence.
 
@@ -91,7 +88,7 @@ class MessageOne(EdhocMessage):
         else:
             raise ValueError('Cipher suite list must contain at least 1 item.')
 
-        msg = [self.method_corr, suites, self.g_x, self.conn_idi]
+        msg = [self.method, suites, self.g_x, self.conn_idi]
 
         if self.aad1 != b'':
             raise NotImplementedError("AAD stuff changed")
@@ -100,7 +97,7 @@ class MessageOne(EdhocMessage):
         return b"".join(cbor2.dumps(chunk) for chunk in msg)
 
     def __repr__(self) -> str:
-        output = f'<MessageOne: [{self.method_corr}, {self.selected_cipher} | {self.cipher_suites}, ' \
+        output = f'<MessageOne: [{self.method}, {self.selected_cipher} | {self.cipher_suites}, ' \
                  f'{EdhocMessage._truncate(self.g_x)}, {hexlify(self.conn_idi)}'
         if self.aad1 != b'':
             output += f'{hexlify(self.aad1)}'

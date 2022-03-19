@@ -30,7 +30,7 @@ class MessageTwo(EdhocMessage):
         return cls(g_y, conn_idr, ciphertext)
 
     @classmethod
-    def data_2(cls, g_y: bytes, conn_idr: bytes, corr: Correlation) -> 'CBOR':
+    def data_2(cls, g_y: bytes, conn_idr: bytes) -> 'CBOR':
         """ Create the data_2 message part. """
 
         data_2 = [g_y, conn_idr]
@@ -46,7 +46,7 @@ class MessageTwo(EdhocMessage):
         self.g_y = g_y
         self.ciphertext = ciphertext
 
-    def encode(self, corr: Correlation) -> bytes:
+    def encode(self) -> bytes:
         """ Encode EDHOC message 2. """
 
         return b''.join(cbor2.dumps(p) for p in (self.g_y + self.ciphertext, self.conn_idr))

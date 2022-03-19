@@ -75,38 +75,23 @@ class Responder(EdhocRole):
             return CipherSuite.from_id(self.msg_1.selected_cipher)
 
     @property
-    def corr(self):
-        """ Get the EDHOC correlation value for the method_corr parameter in EDHOC message 1. """
-
-        if self.msg_1 is None:
-            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
-
-        return self.msg_1.method_corr % 4
-
-    @property
     def method(self):
-        """ Get the EDHOC method value for the method_corr parameter in EDHOC message 1. """
+        """ Get the EDHOC method value for the method parameter in EDHOC message 1. """
 
         if self.msg_1 is None:
             raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
 
-        return (self.msg_1.method_corr - self.corr) // 4
+        return self.msg_1.method
 
     @property
     def conn_idi(self):
-        if self.corr in [Correlation.CORR_1, Correlation.CORR_3]:
-            conn_idi = b''
-        else:
-            conn_idi = self.msg_1.conn_idi
+        conn_idi = self.msg_1.conn_idi
 
         return conn_idi
 
     @property
     def conn_idr(self):
-        if self.corr in [Correlation.CORR_2, Correlation.CORR_3]:
-            conn_idr = b''
-        else:
-            conn_idr = self._conn_id
+        conn_idr = self._conn_id
         return conn_idr
 
     @property
@@ -202,7 +187,7 @@ class Responder(EdhocRole):
         self._internal_state = EdhocState.MSG_2_SENT
         # FIXME: Verify that "size" is actually what gives the g_y len -- only checked here because I'm unsure it is, and at least things will fail in a understandable place if that was wrong
         assert len(self.msg_2.g_y) == self.cipher_suite.dh_curve.size
-        return self.msg_2.encode(self.corr)
+        return self.msg_2.encode()
 
     def finalize(self, message_three: bytes) -> Union[Tuple[bytes, bytes, int, int], bytes]:
         """

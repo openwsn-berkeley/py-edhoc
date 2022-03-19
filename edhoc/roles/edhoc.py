@@ -155,13 +155,6 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def corr(self) -> Correlation:
-        """ Returns the correlation value for the EDHOC transport protocol. """
-
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
     def method(self) -> Method:
         """ Returns the EDHOC method type. """
 
@@ -247,11 +240,11 @@ class EdhocRole(metaclass=ABCMeta):
     def data_2(self) -> CBOR:
         """ Create the data_2 message part from EDHOC message 2. """
 
-        return MessageTwo.data_2(self.g_y, self.conn_idr, self.corr)
+        return MessageTwo.data_2(self.g_y, self.conn_idr)
 
     @property
     def _th2_input(self) -> CBOR:
-        return b''.join([self.msg_1.encode(self.corr), self.data_2])
+        return b''.join([self.data_2])
 
     @property
     def _th3_input(self) -> CBOR:

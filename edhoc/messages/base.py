@@ -31,7 +31,7 @@ class EdhocMessage(metaclass=ABCMeta):
         return decoded
 
     @abstractmethod
-    def encode(self, corr: Correlation):
+    def encode(self):
         """ Encodes an EDHOC message as bytes, ready to be sent over reliable transport. """
 
         raise NotImplementedError

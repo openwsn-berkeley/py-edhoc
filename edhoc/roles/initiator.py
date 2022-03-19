@@ -25,7 +25,6 @@ class Initiator(EdhocRole):
     remote_role = 'R'
 
     def __init__(self,
-                 corr: Correlation,
                  method: Method,
                  cred: Union[RPK, Certificate],
                  cred_idi: CoseHeaderMap,
@@ -41,7 +40,6 @@ class Initiator(EdhocRole):
         """
         Create an EDHOC Initiator.
 
-        :param corr: Correlation value (depends on the transport protocol).
         :param method: EDHOC method type (signatures, static DH or a mix).
         :param cred: The public authentication credentials of the Initiator.
         :param cred_idi: The Initiator's credential identifier (a CBOR encoded COSE header map)
@@ -71,7 +69,6 @@ class Initiator(EdhocRole):
                          ephemeral_key)
 
         self._selected_cipher = CipherSuite.from_id(selected_cipher)
-        self._corr = Correlation(corr)
         self._method = Method(method)
 
     @property
@@ -79,28 +76,18 @@ class Initiator(EdhocRole):
         return self._selected_cipher
 
     @property
-    def corr(self) -> Correlation:
-        return self._corr
-
-    @property
     def method(self) -> Method:
         return self._method
 
     @property
     def conn_idi(self):
-        if self.corr in [Correlation.CORR_1, Correlation.CORR_3]:
-            conn_idi = b''
-        else:
-            conn_idi = self._conn_id
+        conn_idi = self._conn_id
 
         return conn_idi
 
     @property
     def conn_idr(self):
-        if self.corr in [Correlation.CORR_2, Correlation.CORR_3]:
-            conn_idr = b''
-        else:
-            conn_idr = self.msg_2.conn_idr
+        conn_idr = self.msg_2.conn_idr
 
         return conn_idr
 
@@ -162,7 +149,7 @@ class Initiator(EdhocRole):
         self._generate_ephemeral_key()
 
         self.msg_1 = MessageOne(
-            method_corr=self._method * 4 + self._corr,
+            method=self._method,
             cipher_suites=self.supported_ciphers,
             selected_cipher=self._selected_cipher,
             g_x=self.g_x,
@@ -171,7 +158,7 @@ class Initiator(EdhocRole):
 
         self._internal_state = EdhocState.MSG_1_SENT
 
-        return self.msg_1.encode(self.corr)
+        return self.msg_1.encode()
 
     def create_message_three(self, message_two: bytes):
 
