@@ -20,7 +20,7 @@ class MessageOne(EdhocMessage):
     AAD1 = 5
 
     @classmethod
-    def decode(cls, received: bytes) -> 'MessageOne':
+    def decode(cls, received) -> 'MessageOne':
         """
         Tries to decode the bytes as an EDHOC MessageOne.
 

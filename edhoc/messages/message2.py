@@ -16,7 +16,7 @@ class MessageTwo(EdhocMessage):
     CONN_ID_I = -4
 
     @classmethod
-    def decode(cls, received: bytes) -> 'MessageTwo':
+    def decode(cls, received) -> 'MessageTwo':
         """
         Tries to decode the bytes as an EDHOC MessageTwo object
 

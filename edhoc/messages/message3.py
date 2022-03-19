@@ -11,7 +11,7 @@ class MessageThree(EdhocMessage):
     CONN_ID_R = -2
 
     @classmethod
-    def decode(cls, received: bytes) -> 'MessageThree':
+    def decode(cls, received) -> 'MessageThree':
         """
         Tries to decode the bytes as an EDHOC MessageThree object
 

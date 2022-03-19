@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
 from typing import Union
 from edhoc.definitions import Correlation
+import warnings
+from io import BytesIO
 
 import cbor2
 
@@ -9,7 +11,7 @@ class EdhocMessage(metaclass=ABCMeta):
     """ Abstract base class for all EDHOC messages. """
 
     @classmethod
-    def decode(cls, received: bytes) -> list:
+    def decode(cls, received: BytesIO) -> list:
         """
         Decode a received EDHOC message.
 
@@ -17,11 +19,15 @@ class EdhocMessage(metaclass=ABCMeta):
         :return: a decode EDHOC message
         """
 
+        if isinstance(received, bytes):
+            warnings.warn("%s received bytes for decoding")
+            received = BytesIO(received)
+
         decoded = []
 
-        while len(received) > 0:
-            decoded += [cbor2.loads(received)]
-            received = received[received.startswith(cbor2.dumps(decoded[-1])) and len(cbor2.dumps(decoded[-1])):]
+        total_length = len(received.getvalue())
+        while received.tell() < total_length:
+            decoded.append(cbor2.load(received))
         return decoded
 
     @abstractmethod
