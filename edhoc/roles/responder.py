@@ -241,14 +241,6 @@ class Responder(EdhocRole):
             return signature_or_mac3 == mac_3
 
     @property
-    def _hkdf2(self) -> Callable:
-        return functools.partial(super()._hkdf_expand, transcript=self._th2_input)
-
-    @property
-    def _hkdf3(self) -> Callable:
-        return functools.partial(super()._hkdf_expand, transcript=self._th3_input)
-
-    @property
     def _p_2e(self):
         # compute MAC_2
         # TODO: resolve magic key and IV lengths

@@ -247,14 +247,6 @@ class Initiator(EdhocRole):
 
         return ciphertext
 
-    @property
-    def _hkdf2(self) -> Callable:
-        return functools.partial(super()._hkdf_expand, transcript=self._th2_input)
-
-    @property
-    def _hkdf3(self) -> Callable:
-        return functools.partial(super()._hkdf_expand, transcript=self._th3_input)
-
     def _prk3e2m_static_dh(self, prk: bytes):
         return self._prk(self.ephemeral_key, self.remote_authkey, prk)
 

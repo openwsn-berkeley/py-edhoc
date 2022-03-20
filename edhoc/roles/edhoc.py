@@ -285,14 +285,12 @@ class EdhocRole(metaclass=ABCMeta):
         return prk
 
     @property
-    @abstractmethod
     def _hkdf2(self) -> Callable:
-        raise NotImplementedError()
+        return functools.partial(self._hkdf_expand, transcript=self._th2_input)
 
     @property
-    @abstractmethod
     def _hkdf3(self) -> Callable:
-        raise NotImplementedError()
+        return functools.partial(self._hkdf_expand, transcript=self._th3_input)
 
     @abstractmethod
     def _prk3e2m_static_dh(self, prk: bytes):
