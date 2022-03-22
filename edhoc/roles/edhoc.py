@@ -318,7 +318,7 @@ class EdhocRole(metaclass=ABCMeta):
 
     def extract(self, salt, ikm):
         # FIXME: Comprehensively enumerate SHA-2 algorithms, or define a property there
-        if self.cipher_suite.hash in (cose.algorithms.Sha256, ):
+        if self.cipher_suite.hash in (cose.algorithms.Sha256, cose.algorithms.Sha384):
             result = hmac.HMAC(algorithm=self.cipher_suite.hash.hash_cls(), key=salt)
             result.update(ikm)
             return result.finalize()
