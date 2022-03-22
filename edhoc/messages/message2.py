@@ -29,14 +29,6 @@ class MessageTwo(EdhocMessage):
 
         return cls(g_y, conn_idr, ciphertext)
 
-    @classmethod
-    def data_2(cls, g_y: bytes, conn_idr: bytes) -> 'CBOR':
-        """ Create the data_2 message part. """
-
-        data_2 = [g_y, conn_idr]
-
-        return b''.join(cbor2.dumps(part) for part in data_2)
-
     def __init__(self, g_y: bytes, conn_idr: bytes, ciphertext: bytes):
         """
         Creates an EDHOC MessageTwo object.

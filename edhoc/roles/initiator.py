@@ -11,7 +11,7 @@ from cose.keys import OKPKey, EC2Key
 from cose.keys.keyops import EncryptOp
 from cose.messages import Enc0Message, Sign1Message
 
-from edhoc.definitions import CipherSuite, Method, Correlation, EdhocState
+from edhoc.definitions import CipherSuite, Method, Correlation, EdhocState, bytewise_xor, cborstream, compress_id_cred_x
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage, MessageError
 from edhoc.roles.edhoc import EdhocRole, CoseHeaderMap, RPK
 
@@ -166,7 +166,7 @@ class Initiator(EdhocRole):
 
         self._internal_state = EdhocState.MSG_2_RCVD
 
-        decoded = EdhocMessage.decode(self._decrypt(self.msg_2.ciphertext))
+        decoded = EdhocMessage.decode(self.decrypt_msg_2(self.msg_2.ciphertext))
 
         self.cred_idr = decoded[0]
 
@@ -188,21 +188,20 @@ class Initiator(EdhocRole):
         return self.msg_3.encode()
 
     def _verify_signature_or_mac2(self, signature_or_mac2: bytes) -> bool:
-        mac_2 = self._mac(self.cred_idr, self.remote_cred, self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
-
         if not self.is_static_dh(self.remote_role):
+            raise RuntimeError("Probably changed...")
             external_aad = self._external_aad(self.remote_cred, self._th2_input, self.aad2_cb)
             cose_sign = Sign1Message(
                 phdr=self.cred_idr,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
-                payload=mac_2,
+                payload=self.mac_2,
                 external_aad=external_aad)
             # FIXME peeking into internals (probably best resolved at pycose level)
             cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac2
             return cose_sign.verify_signature()
         else:
-            return signature_or_mac2 == mac_2
+            return signature_or_mac2 == self.mac_2
 
     def finalize(self) -> Tuple[bytes, bytes, int, int]:
         """
@@ -222,30 +221,38 @@ class Initiator(EdhocRole):
 
     @property
     def ciphertext_3(self):
-        # TODO: resolve magic key and IV lengths
-        iv_bytes = self._hkdf3(13, 'IV_3ae', self._prk3e2m)
+        # FIXME
+        ead_3 = []
+        mac_3 = self.edhoc_kdf(self.prk_4x3m, self.th_3, "MAC_3", cborstream([self.id_cred_i, self.cred_i, *ead_3]), self.mac_length_3)
 
-        # TODO: resolve magic key and IV lengths
-        cose_key = self._create_cose_key(self._hkdf3, 16, 'K_3ae', self._prk3e2m, [EncryptOp])
+        if self.is_static_dh('I'):
+            signature_or_mac_3 = mac_3
+        else:
+            raise NotImplementedError("Sighn...")
 
-        # create payload for the COSE_Encrypt0
-        payload = [self._p_3ae]
+        k_3 = self.edhoc_kdf(self.prk_3e2m, self.th_3, "K_3", b"", self.cipher_suite.aead.get_key_length())
+        # FIXME IV lengthcA -- the object appears to still take 7 or 13...?
+        iv_3 = self.edhoc_kdf(self.prk_3e2m, self.th_3, "IV_3", b"", 13)
 
-        if self.aad3_cb is not None:
-            payload.append(self.aad3_cb())
+        # FIXME
+        from cose.keys import OKPKey, EC2Key, SymmetricKey
+        from cose.keys.keyparam import KpKeyOps, KpAlg
+        cose_key = SymmetricKey(k=k_3, optional_params={KpKeyOps: [EncryptOp], KpAlg: self.cipher_suite.aead})
 
-        payload = b''.join(payload)
+        plaintext = [compress_id_cred_x(self.id_cred_i), signature_or_mac_3, *ead_3]
+        # TBD does the spec say that?
+        payload = cborstream(plaintext)
 
-        # create the external data for the COSE_Encrypt0
-        th_3 = self.transcript(self.cipher_suite.hash.hash_cls, self._th3_input)
-
-        # calculate the mac_2 using a COSE_Encrypt0 message
-        ciphertext = Enc0Message(uhdr={headers.IV: iv_bytes, headers.Algorithm: self.cipher_suite.aead},
+        ciphertext = Enc0Message(uhdr={headers.IV: iv_3, headers.Algorithm: self.cipher_suite.aead},
                                  key=cose_key,
                                  payload=payload,
-                                 external_aad=th_3).encrypt()
+                                 external_aad=self.th_3).encrypt()
 
         return ciphertext
+
+    @property
+    def _hkdf3(self) -> Callable:
+        return functools.partial(super()._hkdf_expand, transcript=self._th3_input)
 
     def _prk3e2m_static_dh(self, prk: bytes):
         return self._prk(self.ephemeral_key, self.remote_authkey, prk)
@@ -267,8 +274,33 @@ class Initiator(EdhocRole):
 
         return b"".join([cbor2.dumps(cred_id, default=EdhocRole._custom_cbor_encoder), cbor2.dumps(signature)])
 
-    def _decrypt(self, ciphertext: bytes) -> bytes:
-        length = len(ciphertext)
-        xord = int.from_bytes(ciphertext, "big") ^ int.from_bytes(self._hkdf2(length, "KEYSTREAM_2", self._prk2e),
-                                                                  "big")
-        return xord.to_bytes((xord.bit_length() + 7) // 8, byteorder="big")
+    def decrypt_msg_2(self, ciphertext: bytes) -> bytes:
+        # FIXME
+        ead_2 = []
+
+        # FIXME why/how store that?
+        self.ciphertext_2 = ciphertext
+
+        keystream_2 = self.edhoc_kdf(self.prk_2e, self.th_2, "KEYSTREAM_2", b"", len(ciphertext))
+
+        return bytewise_xor(ciphertext, keystream_2)
+
+    @property
+    def shared_secret_rx(self):
+        x = self.ephemeral_key
+        g_r = self.remote_authkey
+        return self.shared_secret(x, g_r)
+
+    @property
+    def shared_secret_iy(self):
+        i = self.auth_key
+        g_y = self.remote_pubkey
+        return self.shared_secret(i, g_y)
+
+    @property
+    def cred_r(self):
+        return self.remote_cred
+
+    @property
+    def cred_i(self):
+        return self.cred

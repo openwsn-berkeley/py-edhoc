@@ -4,6 +4,7 @@ from binascii import hexlify
 from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKING, Tuple
 
 import cbor2
+import cose
 from cose import headers
 from cose.keys.curves import X25519, X448, P256, P384
 from cose.exceptions import CoseUnsupportedCurve
@@ -17,10 +18,10 @@ from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey, X448PrivateKey
-from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
+from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand, HKDF
 from cryptography.x509 import Certificate
 
-from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation, EdhocState
+from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation, EdhocState, cborstream
 from edhoc.exceptions import EdhocException
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage
 
@@ -33,7 +34,6 @@ if TYPE_CHECKING:
 RPK = Union[EC2Key, OKPKey]
 CBOR = bytes
 CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
-
 
 class EdhocRole(metaclass=ABCMeta):
 
@@ -91,6 +91,14 @@ class EdhocRole(metaclass=ABCMeta):
         transcript.update(hash_input)
         return transcript.finalize()
 
+    # FIXME deduplciate against transcript
+    def hash(self, data):
+        """Apply the H() function of the EDHOC specification, based on the
+        selections previously taken"""
+        h = hashes.Hash(self.cipher_suite.hash.hash_cls())
+        h.update(data)
+        return h.finalize()
+
     def _signature_or_mac(self, mac: bytes, transcript: bytes, aad_cb: Callable[..., bytes]) -> bytes:
         if not self.is_static_dh(self.role):
             cose_sign = Sign1Message(
@@ -147,11 +155,25 @@ class EdhocRole(metaclass=ABCMeta):
         return secret
 
     @property
+    def shared_secret_xy(self):
+        return self.shared_secret(self.ephemeral_key, self.remote_pubkey)
+
+    @property
+    @abstractmethod
+    def shared_secret_rx(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def shared_secret_iy(self):
+        raise NotImplementedError()
+
+    @property
     def edhoc_state(self):
         return self._internal_state
 
-    def exporter(self, label: str, length: int):
-        return self._hkdf_expand(length, label, self._prk4x3m, self._th4_input)
+    def exporter(self, label: str, context: bytes, length: int):
+        return self.edhoc_kdf(self.prk_4x3m, self.th_4, label, context, length)
 
     @property
     @abstractmethod
@@ -177,6 +199,11 @@ class EdhocRole(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @property
+    def c_r(self) -> bytes:
+        # rename to current identifiers
+        return self.conn_idr
+
+    @property
     @abstractmethod
     def cred_idi(self) -> CoseHeaderMap:
         """ The credential identifier for the Initiator. """
@@ -184,11 +211,19 @@ class EdhocRole(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @property
+    def id_cred_i(self):
+        return self.cred_idi
+
+    @property
     @abstractmethod
     def cred_idr(self) -> CoseHeaderMap:
         """ The credential identifier for the Responder. """
 
         raise NotImplementedError()
+
+    @property
+    def id_cred_r(self):
+        return self.cred_idr
 
     @property
     @abstractmethod
@@ -237,14 +272,11 @@ class EdhocRole(metaclass=ABCMeta):
         return cbor2.dumps(self.conn_idr)
 
     @property
-    def data_2(self) -> CBOR:
-        """ Create the data_2 message part from EDHOC message 2. """
-
-        return MessageTwo.data_2(self.g_y, self.conn_idr)
-
-    @property
     def _th2_input(self) -> CBOR:
-        return b''.join([self.data_2])
+        # FIXME re-encoding relying on deterministic encoding which we should (and that'd have been easier if create_message_two didn't take a decoded Message)
+        msg_1_hash = self.hash(self.msg_1.encode())
+        input_data = [msg_1_hash, self.g_y, self.c_r]
+        return b''.join(cbor2.dumps(i) for i in input_data)
 
     @property
     def _th3_input(self) -> CBOR:
@@ -275,18 +307,83 @@ class EdhocRole(metaclass=ABCMeta):
         else:
             return self._prk4x3m_static_dh(self._prk3e2m)
 
-    def _prk(self, private_key: Union[RPK, 'CK'], pub_key: Union[RPK, 'CK'], salt: bytes) -> bytes:
-        secret = self.shared_secret(private_key, pub_key)
+#     def _prk(self, private_key: Union[RPK, 'CK'], pub_key: Union[RPK, 'CK'], salt: bytes) -> bytes:
+#         secret = self.shared_secret(private_key, pub_key)
+# 
+#         prk_2e = hmac.HMAC(algorithm=self.cipher_suite.hash.hash_cls(), key=salt)
+#         prk_2e.update(secret)
+# 
+#         prk = prk_2e.finalize()
+#         return prk
 
-        prk_2e = hmac.HMAC(algorithm=self.cipher_suite.hash.hash_cls(), key=salt)
-        prk_2e.update(secret)
-
-        prk = prk_2e.finalize()
-        return prk
+    def extract(self, salt, ikm):
+        # FIXME: Comprehensively enumerate SHA-2 algorithms, or define a property there
+        if self.cipher_suite.hash in (cose.algorithms.Sha256, ):
+            result = hmac.HMAC(algorithm=self.cipher_suite.hash.hash_cls(), key=salt)
+            result.update(ikm)
+            return result.finalize()
+        else:
+            raise NotImplementedError()
 
     @property
-    def _hkdf2(self) -> Callable:
-        return functools.partial(self._hkdf_expand, transcript=self._th2_input)
+    def prk_2e(self):
+        return self.extract(b"", self.shared_secret_xy)
+
+    @property
+    def prk_3e2m(self):
+        if self.is_static_dh('R'):
+            return self.extract(self.prk_2e, self.shared_secret_rx)
+        else:
+            return self.prk_2e
+
+    @property
+    def prk_4x3m(self):
+        if self.is_static_dh('I'):
+            return self.extract(self.prk_3e2m, self.shared_secret_iy)
+        else:
+            return self.prk_3e2m
+
+    @property
+    def th_2(self) -> bytes:
+        return self.hash(self._th2_input)
+
+    @property
+    def mac_length_2(self) -> int:
+        if self.is_static_dh('R'):
+            return self.cipher_suite.edhoc_mac_length
+        else:
+            # not sure what's the right property here
+            return self.cipher_suite.hash.output_size
+
+    @property
+    def mac_length_3(self) -> int:
+        if self.is_static_dh('I'):
+            return self.cipher_suite.edhoc_mac_length
+        else:
+            # not sure what's the right property here
+            return self.cipher_suite.hash.output_size
+
+    @property
+    def mac_2(self) -> bytes:
+        # FIXME
+        ead_2 = []
+        return self.edhoc_kdf(
+                self.prk_3e2m,
+                self.th_2,
+                "MAC_2",
+                cborstream([self.id_cred_r, self.cred_r, *ead_2]),
+                self.mac_length_2,
+                )
+
+    @property
+    def th_3(self) -> bytes:
+        th_2 = self.th_2
+        ciphertext_2 = self.ciphertext_2
+        return self.hash(cborstream([th_2, ciphertext_2]))
+
+    @property
+    def th_4(self) -> bytes:
+        return self.hash(cborstream([self.th_3, self.ciphertext_3]))
 
     @property
     def _hkdf3(self) -> Callable:
@@ -359,31 +456,31 @@ class EdhocRole(metaclass=ABCMeta):
         aad = b"".join(aad)
         return aad
 
-    @abstractmethod
-    def _decrypt(self, ciphertext: bytes) -> bool:
-        raise NotImplementedError()
-
     @functools.lru_cache()
     def _hkdf_expand(self, length: int, label: str, prk: bytes, transcript: bytes) -> bytes:
-        """
-        Derive the encryption key and the IV to protect the COSE_Encrypt0 message in the EDHOC message 2.
+        return RuntimeError("These don't work like that any more")
 
-        :return:
-        """
+    # FIXME reevaluate where we want to do these
+    @functools.lru_cache()
+    def edhoc_kdf(self, prk: bytes, transcript_hash: bytes, label: str, context: bytes, length: int) -> bytes:
+        """Implementation of EDHOC-KDF() of the specification"""
+
+        # FIXME: This is duplicating _hkdf_expand, and expanding the info
+        # changes right in place. Remove them once this is done.
+
         hash_func = self.cipher_suite.hash.hash_cls
 
         info = EdhocKDFInfo(
-            edhoc_aead_id=self.cipher_suite.aead.identifier,
-            transcript_hash=self.transcript(hash_func, transcript),
-            label=label,
-            length=length)
+                transcript_hash=transcript_hash,
+                label=label,
+                context=context,
+                length=length,
+                )
 
-        derived_bytes = HKDFExpand(
+        return HKDFExpand(
             algorithm=hash_func(),
             length=info.length,
             info=info.encode()).derive(prk)
-
-        return derived_bytes
 
     def _generate_ephemeral_key(self) -> None:
         """
@@ -425,3 +522,13 @@ class EdhocRole(metaclass=ABCMeta):
 
     def _populate_remote_details(self, remote_cred_id):
         self.remote_cred, self.remote_authkey = self._parse_credentials(self.remote_cred_cb(remote_cred_id))
+
+    @property
+    @abstractmethod
+    def cred_i(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def cred_r(self):
+        raise NotImplementedError()

@@ -9,6 +9,20 @@ from cose.keys.curves import X25519, Ed25519, P256, P384
 from edhoc.exceptions import EdhocException
 
 
+def cborstream(items) -> bytes:
+    """Encode an iterable of items in CBOR into a stream"""
+    return b"".join(cbor2.dumps(i) for i in items)
+
+def compress_id_cred_x(id_cred_x):
+    if list(id_cred_x.keys()) == 4 and type(id_cred_x[4]) in (int, bytes):
+        return id_cred_x[4]
+    else:
+        return id_cred_x
+
+def bytewise_xor(a: bytes, b: bytes) -> bytes:
+    assert len(a) == len(b) # Python 3.10: zip(a, b, True) and remove this line
+    return bytes((_a ^ _b) for (_a, _b) in zip(a, b))
+
 class EdhocState(IntEnum):
     EDHOC_WAIT = 0
     MSG_1_SENT = 1
@@ -138,6 +152,8 @@ class CipherSuite0(CipherSuite):
     app_aead = AESCCM1664128
     app_hash = Sha256
 
+    edhoc_mac_length = 8
+
 
 @CipherSuite.register_ciphersuite()
 class CipherSuite1(CipherSuite):
@@ -210,15 +226,13 @@ assert CipherSuite5.check_identifiers() == (3, -43, 2, -35, 2, 3, -43)
 
 
 class EdhocKDFInfo(NamedTuple):
-    edhoc_aead_id: int
     transcript_hash: bytes
     label: str
+    context: bytes
     length: int
 
     def encode(self) -> bytes:
-        info = [self.edhoc_aead_id, self.transcript_hash, self.label, self.length]
-        info = cbor2.dumps(info)
-        return info
+        return cborstream(self)
 
 
 CS = TypeVar('CS', bound='CipherSuite')
