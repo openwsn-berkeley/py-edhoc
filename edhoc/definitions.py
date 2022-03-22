@@ -131,9 +131,9 @@ class CipherSuite(ABC):
         return (
                 cls.aead.identifier,
                 cls.hash.identifier,
+                cls.edhoc_mac_length,
                 cls.dh_curve.identifier,
                 cls.sign_alg.identifier,
-                cls.sign_curve.identifier,
                 cls.app_aead.identifier,
                 cls.app_hash.identifier,
                 )
@@ -153,6 +153,7 @@ class CipherSuite0(CipherSuite):
     app_hash = Sha256
 
     edhoc_mac_length = 8
+assert CipherSuite0.check_identifiers() == (10, -16, 8, 4, -8, 10, -16)
 
 
 @CipherSuite.register_ciphersuite()
@@ -168,6 +169,9 @@ class CipherSuite1(CipherSuite):
     app_aead = AESCCM1664128
     app_hash = Sha256
 
+    edhoc_mac_length = 16
+assert CipherSuite1.check_identifiers() == (30, -16, 16, 4, -8, 10, -16)
+
 
 @CipherSuite.register_ciphersuite()
 class CipherSuite2(CipherSuite):
@@ -181,6 +185,9 @@ class CipherSuite2(CipherSuite):
     sign_curve = P256
     app_aead = AESCCM1664128
     app_hash = Sha256
+
+    edhoc_mac_length = 8
+assert CipherSuite2.check_identifiers() == (10, -16, 8, 1, -7, 10, -16)
 
 
 @CipherSuite.register_ciphersuite()
@@ -196,10 +203,15 @@ class CipherSuite3(CipherSuite):
     app_aead = AESCCM1664128
     app_hash = Sha256
 
+    edhoc_mac_length = 16
+assert CipherSuite3.check_identifiers() == (30, -16, 16, 1, -7, 10, -16)
+
+# ChaCha missing from pycose
+
 @CipherSuite.register_ciphersuite()
-class CipherSuite4(CipherSuite):
-    identifier = 4
-    fullname = "SUITE_4"
+class CipherSuite6(CipherSuite):
+    identifier = 6
+    fullname = "SUITE_6"
 
     aead = A128GCM
     hash = Sha256
@@ -208,12 +220,14 @@ class CipherSuite4(CipherSuite):
     sign_curve = P256
     app_aead = A128GCM
     app_hash = Sha256
-assert CipherSuite4.check_identifiers() == (1, -16, 4, -7, 1, 1, -16)
+
+    edhoc_mac_length = 16
+assert CipherSuite6.check_identifiers() == (1, -16, 16, 4, -7, 1, -16)
 
 @CipherSuite.register_ciphersuite()
-class CipherSuite5(CipherSuite):
-    identifier = 5
-    fullname = "SUITE_5"
+class CipherSuite24(CipherSuite):
+    identifier = 24
+    fullname = "SUITE_24"
 
     aead = A256GCM
     hash = Sha384
@@ -222,7 +236,9 @@ class CipherSuite5(CipherSuite):
     sign_curve = P384
     app_aead = A256GCM
     app_hash = Sha384
-assert CipherSuite5.check_identifiers() == (3, -43, 2, -35, 2, 3, -43)
+
+    edhoc_mac_length = 16
+assert CipherSuite24.check_identifiers() == (3, -43, 16, 2, -35, 3, -43)
 
 
 class EdhocKDFInfo(NamedTuple):
