@@ -256,28 +256,6 @@ class Responder(EdhocRole):
         else:
             return signature_or_mac3 == mac_3
 
-#     @property
-#     def _p_2e(self):
-#         # compute MAC_2
-#         # TODO: resolve magic key and IV lengths
-#         mac_2 = self._mac(self.cred_idr, self.cred, self._hkdf2, 'K_2m', 16, 'IV_2m', 13, self._th2_input, self._prk3e2m, self.aad2_cb)
-# 
-#         # compute the signature_or_mac2
-#         signature = self.signature_or_mac2(mac_2)
-# 
-#         if KID.identifier in self.cred_id:
-#             cred_id = EdhocMessage.encode_bstr_id(self.cred_id[KID.identifier])
-#         else:
-#             cred_id = self.cred_id
-# 
-#         return b"".join([cbor2.dumps(cred_id, default=EdhocRole._custom_cbor_encoder), cbor2.dumps(signature)])
-
-    def _prk3e2m_static_dh(self, prk: bytes):
-        return self._prk(self.auth_key, self.remote_pubkey, prk)
-
-    def _prk4x3m_static_dh(self, prk: bytes):
-        return self._prk(self.ephemeral_key, self.remote_authkey, prk)
-
     def _verify_cipher_selection(self, selected: CipherSuite, supported: List[CipherSuite]) -> bool:
         """
         Checks if the selected cipher suite is supported and that no prior cipher suites in the Initiator's list of

@@ -142,9 +142,6 @@ class Initiator(EdhocRole):
     def local_authkey(self) -> RPK:
         return self._local_authkey
 
-    def signature_or_mac3(self, mac_3: bytes):
-        return self._signature_or_mac(mac_3, self._th3_input, self.aad3_cb)
-
     def create_message_one(self) -> bytes:
         self._generate_ephemeral_key()
 
@@ -258,30 +255,6 @@ class Initiator(EdhocRole):
                                  external_aad=self.th_3).encrypt()
 
         return ciphertext
-
-    @property
-    def _hkdf3(self) -> Callable:
-        return functools.partial(super()._hkdf_expand, transcript=self._th3_input)
-
-    def _prk3e2m_static_dh(self, prk: bytes):
-        return self._prk(self.ephemeral_key, self.remote_authkey, prk)
-
-    def _prk4x3m_static_dh(self, prk: bytes):
-        return self._prk(self.auth_key, self.remote_pubkey, prk)
-
-    @property
-    def _p_3ae(self):
-        # TODO: resolve magic key and IV lengths
-        mac_3 = self._mac(self.cred_idi, self.cred, self._hkdf3, 'K_3m', 16, 'IV_3m', 13, self._th3_input, self._prk4x3m, self.aad3_cb)
-
-        signature = self.signature_or_mac3(mac_3)
-
-        if KID.identifier in self.cred_id:
-            cred_id = EdhocMessage.encode_bstr_id(self.cred_id[KID.identifier])
-        else:
-            cred_id = self.cred_id
-
-        return b"".join([cbor2.dumps(cred_id, default=EdhocRole._custom_cbor_encoder), cbor2.dumps(signature)])
 
     def decrypt_msg_2(self, ciphertext: bytes) -> bytes:
         # FIXME

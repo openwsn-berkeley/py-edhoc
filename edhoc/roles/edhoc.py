@@ -99,18 +99,6 @@ class EdhocRole(metaclass=ABCMeta):
         h.update(data)
         return h.finalize()
 
-    def _signature_or_mac(self, mac: bytes, transcript: bytes, aad_cb: Callable[..., bytes]) -> bytes:
-        if not self.is_static_dh(self.role):
-            cose_sign = Sign1Message(
-                phdr=self.cred_id,
-                uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
-                payload=mac,
-                key=self.auth_key,
-                external_aad=self._external_aad(self.cred, transcript, aad_cb))
-            return cose_sign.compute_signature()
-        else:
-            return mac
-
     def is_static_dh(self, role: str) -> bool:
         """
         Check if EDHOC role uses static DH authentication.
@@ -278,44 +266,6 @@ class EdhocRole(metaclass=ABCMeta):
         input_data = [msg_1_hash, self.g_y, self.c_r]
         return b''.join(cbor2.dumps(i) for i in input_data)
 
-    @property
-    def _th3_input(self) -> CBOR:
-        input_th = [self.transcript(self.cipher_suite.hash.hash_cls, self._th2_input), self.msg_2.ciphertext]
-        return b''.join([cbor2.dumps(part) for part in input_th] + [self.data_3])
-
-    @property
-    def _th4_input(self) -> CBOR:
-        input_th = [self.transcript(self.cipher_suite.hash.hash_cls, self._th3_input), self.msg_3.ciphertext]
-        return b''.join([cbor2.dumps(part) for part in input_th])
-
-    @property
-    @functools.lru_cache()
-    def _prk2e(self) -> bytes:
-        return self._prk(self.ephemeral_key, self.remote_pubkey, b'')
-
-    @property
-    def _prk3e2m(self) -> bytes:
-        if not self.is_static_dh('R'):
-            return self._prk2e
-        else:
-            return self._prk3e2m_static_dh(self._prk2e)
-
-    @property
-    def _prk4x3m(self) -> bytes:
-        if not self.is_static_dh('I'):
-            return self._prk3e2m
-        else:
-            return self._prk4x3m_static_dh(self._prk3e2m)
-
-#     def _prk(self, private_key: Union[RPK, 'CK'], pub_key: Union[RPK, 'CK'], salt: bytes) -> bytes:
-#         secret = self.shared_secret(private_key, pub_key)
-# 
-#         prk_2e = hmac.HMAC(algorithm=self.cipher_suite.hash.hash_cls(), key=salt)
-#         prk_2e.update(secret)
-# 
-#         prk = prk_2e.finalize()
-#         return prk
-
     def extract(self, salt, ikm):
         # FIXME: Comprehensively enumerate SHA-2 algorithms, or define a property there
         if self.cipher_suite.hash in (cose.algorithms.Sha256, cose.algorithms.Sha384):
@@ -383,48 +333,6 @@ class EdhocRole(metaclass=ABCMeta):
     def th_4(self) -> bytes:
         return self.hash(cborstream([self.th_3, self.ciphertext_3]))
 
-    @property
-    def _hkdf3(self) -> Callable:
-        return functools.partial(self._hkdf_expand, transcript=self._th3_input)
-
-    @abstractmethod
-    def _prk3e2m_static_dh(self, prk: bytes):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def _prk4x3m_static_dh(self, prk: bytes):
-        raise NotImplementedError()
-
-    def _mac(self,
-             cred_id: CoseHeaderMap,
-             cred,
-             hkdf: Callable,
-             key_label: str,
-             key_len: int,
-             iv_label: str,
-             iv_len: int,
-             th_input: bytes,
-             prk: bytes,
-             aad_cb: Callable[..., bytes]) -> bytes:
-
-        iv_bytes = hkdf(iv_len, iv_label, prk)
-        cose_key = self._create_cose_key(hkdf, key_len, key_label, prk, [EncryptOp])
-
-        # calculate the mac using a COSE_Encrypt0 message
-        return Enc0Message(
-            phdr=cred_id,
-            uhdr={headers.IV: iv_bytes, headers.Algorithm: self.cipher_suite.aead},
-            payload=b'',
-            key=cose_key,
-            external_aad=self._external_aad(cred, th_input, aad_cb)
-        ).encrypt()
-
-    def _create_cose_key(self, hkdf, key_len: int, label: str, prk: bytes, ops: List[Type['KEYOPS']]) -> SymmetricKey:
-        return SymmetricKey(
-            k=hkdf(key_len, label, prk),
-            optional_params={KpKeyOps: ops, KpAlg: self.cipher_suite.aead}
-        )
-
     def _external_aad(self, cred: Union[Certificate, RPK], transcript: bytes, aad_cb: Callable[..., bytes]) -> CBOR:
         """Build an unserialized external AAD out of a transcript hash, a cred
         and AAD data.
@@ -453,10 +361,6 @@ class EdhocRole(metaclass=ABCMeta):
 
         aad = b"".join(aad)
         return aad
-
-    @functools.lru_cache()
-    def _hkdf_expand(self, length: int, label: str, prk: bytes, transcript: bytes) -> bytes:
-        return RuntimeError("These don't work like that any more")
 
     # FIXME reevaluate where we want to do these
     @functools.lru_cache()
@@ -513,10 +417,6 @@ class EdhocRole(metaclass=ABCMeta):
             raise EdhocException("Invalid credentials")
 
         return cred, auth_key
-
-    @classmethod
-    def _custom_cbor_encoder(cls, encoder, cose_attribute: 'CoseHeaderAttribute'):
-        encoder.encode(cose_attribute.identifier)
 
     def _populate_remote_details(self, remote_cred_id):
         self.remote_cred, self.remote_authkey = self._parse_credentials(self.remote_cred_cb(remote_cred_id))
