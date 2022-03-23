@@ -172,7 +172,7 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def conn_idi(self) -> bytes:
+    def c_i(self) -> bytes:
         """ Returns the Initiator's connection identifier if required by the correlation value, otherwise an empty
         byte string. """
 
@@ -180,7 +180,7 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def conn_idr(self) -> bytes:
+    def c_r(self) -> bytes:
         """ Returns the Responder's connection identifier if required by the correlation value, otherwise an empty
         byte string. """
 
@@ -189,7 +189,7 @@ class EdhocRole(metaclass=ABCMeta):
     @property
     def c_r(self) -> bytes:
         # rename to current identifiers
-        return self.conn_idr
+        return self.c_r
 
     @property
     @abstractmethod
@@ -257,7 +257,7 @@ class EdhocRole(metaclass=ABCMeta):
     def data_3(self) -> CBOR:
         """ Create the data_3 message part from EDHOC message 3. """
 
-        return cbor2.dumps(self.conn_idr)
+        return cbor2.dumps(self.c_r)
 
     @property
     def _th2_input(self) -> CBOR:

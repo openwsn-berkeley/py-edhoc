@@ -20,30 +20,30 @@ class MessageTwo(EdhocMessage):
         """
 
         decoded = super().decode(received)
-        (g_y_ciphertext, conn_idr) = decoded
+        (g_y_ciphertext, c_r) = decoded
 
         # FIXME: See create_message_two comment on the same property
         N = suite.dh_curve.size
         g_y = g_y_ciphertext[:N]
         ciphertext = g_y_ciphertext[N:]
 
-        return cls(g_y, conn_idr, ciphertext)
+        return cls(g_y, c_r, ciphertext)
 
-    def __init__(self, g_y: bytes, conn_idr: bytes, ciphertext: bytes):
+    def __init__(self, g_y: bytes, c_r: bytes, ciphertext: bytes):
         """
         Creates an EDHOC MessageTwo object.
         """
 
-        self.conn_idr = conn_idr
+        self.c_r = c_r
         self.g_y = g_y
         self.ciphertext = ciphertext
 
     def encode(self) -> bytes:
         """ Encode EDHOC message 2. """
 
-        return b''.join(cbor2.dumps(p) for p in (self.g_y + self.ciphertext, self.conn_idr))
+        return b''.join(cbor2.dumps(p) for p in (self.g_y + self.ciphertext, self.c_r))
 
     def __repr__(self) -> str:
-        output = f'<MessageTwo: [{EdhocMessage._truncate(self.g_y)}, {self.conn_idr}, {self.ciphertext}>'
+        output = f'<MessageTwo: [{EdhocMessage._truncate(self.g_y)}, {self.c_r}, {self.ciphertext}>'
 
         return output

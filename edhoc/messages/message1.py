@@ -25,7 +25,7 @@ class MessageOne(EdhocMessage):
 
         decoded = super().decode(received)
 
-        (method, ciphers, g_x, conn_idi, *aad) = decoded
+        (method, ciphers, g_x, c_i, *aad) = decoded
 
         if isinstance(ciphers, int):
             selected_cipher = ciphers
@@ -41,7 +41,7 @@ class MessageOne(EdhocMessage):
             selected_cipher=CipherSuite.from_id(selected_cipher),
             cipher_suites=[CipherSuite.from_id(c) for c in supported_ciphers],
             g_x=g_x,
-            conn_idi=conn_idi)
+            c_i=c_i)
 
         if aad:
             raise NotImplementedError("AAD changed")
@@ -53,7 +53,7 @@ class MessageOne(EdhocMessage):
                  cipher_suites: List['CS'],
                  selected_cipher: Type['CS'],
                  g_x: bytes,
-                 conn_idi: Optional[bytes] = None,
+                 c_i: Optional[bytes] = None,
                  external_aad: bytes = b''):
 
         """
@@ -63,7 +63,7 @@ class MessageOne(EdhocMessage):
         :param cipher_suites: Supported cipher suites (ordered by decreasing preference).
         :param selected_cipher: The preferred cipher suite.
         :param g_x: The ephemeral public key of the Initiator.
-        :param conn_idi: A variable length connection identifier.
+        :param c_i: A variable length connection identifier.
         :param external_aad: Unprotected opaque auxiliary data (transferred together with EDHOC message 1).
         """
 
@@ -71,7 +71,7 @@ class MessageOne(EdhocMessage):
         self.cipher_suites = cipher_suites
         self.selected_cipher = selected_cipher
         self.g_x = g_x
-        self.conn_idi = conn_idi
+        self.c_i = c_i
         self.aad1 = external_aad
 
     def encode(self) -> bytes:
@@ -88,7 +88,7 @@ class MessageOne(EdhocMessage):
         else:
             raise ValueError('Cipher suite list must contain at least 1 item.')
 
-        msg = [self.method, suites, self.g_x, self.conn_idi]
+        msg = [self.method, suites, self.g_x, self.c_i]
 
         if self.aad1 != b'':
             raise NotImplementedError("AAD stuff changed")
@@ -98,7 +98,7 @@ class MessageOne(EdhocMessage):
 
     def __repr__(self) -> str:
         output = f'<MessageOne: [{self.method}, {self.selected_cipher} | {self.cipher_suites}, ' \
-                 f'{EdhocMessage._truncate(self.g_x)}, {hexlify(self.conn_idi)}'
+                 f'{EdhocMessage._truncate(self.g_x)}, {hexlify(self.c_i)}'
         if self.aad1 != b'':
             output += f'{hexlify(self.aad1)}'
         output += ']>'

@@ -32,7 +32,7 @@ class Initiator(EdhocRole):
                  selected_cipher: Type['CS'],
                  supported_ciphers: List[Type['CS']],
                  remote_cred_cb:  Callable[[CoseHeaderMap], Union[Certificate, RPK]],
-                 conn_idi: Optional[bytes] = None,
+                 c_i: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
                  aad3_cb: Optional[Callable[..., bytes]] = None,
@@ -46,7 +46,7 @@ class Initiator(EdhocRole):
         :param auth_key: The private authentication key (CoseKey) of the Responder.
         :param selected_cipher: Provide the selected cipher.
         :param supported_ciphers: A list of ciphers supported by the Responder.
-        :param conn_idi: The connection identifier to be used
+        :param c_i: The connection identifier to be used
         :param remote_cred_cb: A callback that fetches the remote credentials.
         :param aad1_cb: A callback to pass received additional data to the application protocol.
         :param aad2_cb: A callback to pass additional data to the remote endpoint.
@@ -54,14 +54,14 @@ class Initiator(EdhocRole):
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
 
-        if conn_idi is None:
-            conn_idi = os.urandom(1)
+        if c_i is None:
+            c_i = os.urandom(1)
 
         super().__init__(cred,
                          cred_idi,
                          auth_key,
                          supported_ciphers,
-                         conn_idi,
+                         c_i,
                          remote_cred_cb,
                          aad1_cb,
                          aad2_cb,
@@ -80,16 +80,16 @@ class Initiator(EdhocRole):
         return self._method
 
     @property
-    def conn_idi(self):
-        conn_idi = self._conn_id
+    def c_i(self):
+        c_i = self._conn_id
 
-        return conn_idi
+        return c_i
 
     @property
-    def conn_idr(self):
-        conn_idr = self.msg_2.conn_idr
+    def c_r(self):
+        c_r = self.msg_2.c_r
 
-        return conn_idr
+        return c_r
 
     @property
     def cred_idi(self) -> CoseHeaderMap:
@@ -150,7 +150,7 @@ class Initiator(EdhocRole):
             cipher_suites=self.supported_ciphers,
             selected_cipher=self._selected_cipher,
             g_x=self.g_x,
-            conn_idi=self._conn_id,
+            c_i=self._conn_id,
         )
 
         self._internal_state = EdhocState.MSG_1_SENT
@@ -214,7 +214,7 @@ class Initiator(EdhocRole):
         app_hash = self.cipher_suite.app_hash
 
         # pass the connection identifiers and the algorithms identifiers
-        return self._conn_id, self.msg_2.conn_idr, app_aead.identifier, app_hash.identifier
+        return self._conn_id, self.msg_2.c_r, app_aead.identifier, app_hash.identifier
 
     @property
     def ciphertext_3(self):

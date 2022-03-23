@@ -31,7 +31,7 @@ class Responder(EdhocRole):
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
                  remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
-                 conn_idr: Optional[bytes] = None,
+                 c_r: Optional[bytes] = None,
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
                  aad3_cb: Optional[Callable[..., bytes]] = None,
@@ -43,7 +43,7 @@ class Responder(EdhocRole):
         :param cred_idr: The Responder's credential identifier (a CBOR encoded COSE header map)
         :param auth_key: The private authentication key (CoseKey) of the Responder.
         :param supported_ciphers: A list of ciphers supported by the Responder.
-        :param conn_idr: The connection identifier of the Responder.
+        :param c_r: The connection identifier of the Responder.
         :param remote_cred_cb: A callback that fetches the remote credentials
         :param aad1_cb: A callback to pass received additional data to the application protocol.
         :param aad2_cb: A callback to pass additional data to the remote endpoint.
@@ -51,14 +51,14 @@ class Responder(EdhocRole):
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
 
-        if conn_idr is None:
-            conn_idr = os.urandom(1)
+        if c_r is None:
+            c_r = os.urandom(1)
 
         super().__init__(cred,
                          cred_idr,
                          auth_key,
                          supported_ciphers,
-                         conn_idr,
+                         c_r,
                          remote_cred_cb,
                          aad1_cb,
                          aad2_cb,
@@ -84,15 +84,15 @@ class Responder(EdhocRole):
         return self.msg_1.method
 
     @property
-    def conn_idi(self):
-        conn_idi = self.msg_1.conn_idi
+    def c_i(self):
+        c_i = self.msg_1.c_i
 
-        return conn_idi
+        return c_i
 
     @property
-    def conn_idr(self):
-        conn_idr = self._conn_id
-        return conn_idr
+    def c_r(self):
+        c_r = self._conn_id
+        return c_r
 
     @property
     def cred_idi(self) -> CoseHeaderMap:
@@ -194,7 +194,7 @@ class Responder(EdhocRole):
 
         self._generate_ephemeral_key()
 
-        self.msg_2 = MessageTwo(self.g_y, self.conn_idr, self.ciphertext_2)
+        self.msg_2 = MessageTwo(self.g_y, self.c_r, self.ciphertext_2)
 
         self._internal_state = EdhocState.MSG_2_SENT
         # FIXME: Verify that "size" is actually what gives the g_y len -- only checked here because I'm unsure it is, and at least things will fail in a understandable place if that was wrong
@@ -233,7 +233,7 @@ class Responder(EdhocRole):
 
         self._internal_state = EdhocState.EDHOC_SUCC
 
-        return self.msg_1.conn_idi, self._conn_id, app_aead.identifier, app_hash.identifier
+        return self.msg_1.c_i, self._conn_id, app_aead.identifier, app_hash.identifier
 
     def _verify_signature_or_mac3(self, signature_or_mac3: bytes) -> bool:
         # fixme
