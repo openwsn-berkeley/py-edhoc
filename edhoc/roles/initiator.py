@@ -171,12 +171,10 @@ class Initiator(EdhocRole):
             self._internal_state = EdhocState.EDHOC_FAIL
             return MessageError(err_msg='Signature verification failed').encode()
 
-        try:
-            ad_2 = decoded[2]
-            if self.aad2_cb is not None:
-                self.aad2_cb(ad_2)
-        except IndexError:
-            pass
+        ad_2 = decoded[2:]
+        assert not ad_2 # FIXME this is new
+        if self.aad2_cb is not None:
+            self.aad2_cb(ad_2)
 
         self.msg_3 = MessageThree(self.ciphertext_3)
 

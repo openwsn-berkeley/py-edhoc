@@ -223,13 +223,10 @@ class Responder(EdhocRole):
         if not self._verify_signature_or_mac3(signature_or_mac3=decoded[1]):
             return MessageError(err_msg='Signature verification failed').encode()
 
-        try:
-            ad_3 = decoded[2:]
-            assert not ad_3 # FIXME this is new
-            if self.aad3_cb is not None:
-                self.aad3_cb(ad_3)
-        except IndexError:
-            pass
+        ad_3 = decoded[2:]
+        assert not ad_3 # FIXME this is new
+        if self.aad3_cb is not None:
+            self.aad3_cb(ad_3)
 
         app_aead = self.cipher_suite.app_aead
         app_hash = self.cipher_suite.app_hash
