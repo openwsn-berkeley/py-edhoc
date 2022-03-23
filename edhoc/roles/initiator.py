@@ -1,5 +1,4 @@
 import functools
-import os
 from typing import List, Optional, Callable, Union, Tuple, TYPE_CHECKING, Type
 
 import cbor2
@@ -32,7 +31,7 @@ class Initiator(EdhocRole):
                  selected_cipher: Type['CS'],
                  supported_ciphers: List[Type['CS']],
                  remote_cred_cb:  Callable[[CoseHeaderMap], Union[Certificate, RPK]],
-                 c_i: Optional[bytes] = None,
+                 c_i: Union[bytes, int],
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
                  aad3_cb: Optional[Callable[..., bytes]] = None,
@@ -53,9 +52,6 @@ class Initiator(EdhocRole):
         :param aad3_cb: A callback to pass received additional data to the application protocol.
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
-
-        if c_i is None:
-            c_i = os.urandom(1)
 
         super().__init__(cred,
                          cred_idi,

@@ -42,7 +42,7 @@ class EdhocRole(metaclass=ABCMeta):
                  cred_id: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
-                 conn_id: bytes,
+                 conn_id: Union[bytes, int],
                  remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
                  aad1_cb: Optional[Callable[..., bytes]],
                  aad2_cb: Optional[Callable[..., bytes]],
