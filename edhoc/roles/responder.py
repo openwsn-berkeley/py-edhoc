@@ -25,8 +25,8 @@ class Responder(EdhocRole):
     remote_role = 'I'
 
     def __init__(self,
-                 cred: Union[RPK, Certificate],
-                 cred_idr: CoseHeaderMap,
+                 cred_local: Union[RPK, Certificate],
+                 id_cred_r: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
                  remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
@@ -38,8 +38,8 @@ class Responder(EdhocRole):
         """
         Create an EDHOC responder.
 
-        :param cred: The public authentication credentials of the Responder.
-        :param cred_idr: The Responder's credential identifier (a CBOR encoded COSE header map)
+        :param cred_local: The public authentication credentials of the Responder.
+        :param id_cred_r: The Responder's credential identifier (a CBOR encoded COSE header map)
         :param auth_key: The private authentication key (CoseKey) of the Responder.
         :param supported_ciphers: A list of ciphers supported by the Responder.
         :param c_r: The connection identifier of the Responder.
@@ -50,8 +50,8 @@ class Responder(EdhocRole):
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
 
-        super().__init__(cred,
-                         cred_idr,
+        super().__init__(cred_local,
+                         id_cred_r,
                          auth_key,
                          supported_ciphers,
                          c_r,
@@ -81,32 +81,29 @@ class Responder(EdhocRole):
 
     @property
     def c_i(self):
-        c_i = self.msg_1.c_i
-
-        return c_i
+        return self.msg_1.c_i
 
     @property
     def c_r(self):
-        c_r = self._conn_id
-        return c_r
+        return self._c_local
 
     @property
-    def cred_idi(self) -> CoseHeaderMap:
-        return self._cred_idi
+    def id_cred_i(self) -> CoseHeaderMap:
+        return self._id_cred_i
 
-    @cred_idi.setter
-    def cred_idi(self, value):
+    @id_cred_i.setter
+    def id_cred_i(self, value):
         if isinstance(value, int):
             value = {4: EdhocMessage.decode_bstr_id(value)}
         elif isinstance(value, bytes):
             value = {4: value}
 
-        self._cred_idi = value
+        self._id_cred_i = value
         self._populate_remote_details(value)
 
     @property
-    def cred_idr(self) -> CoseHeaderMap:
-        return self.cred_id
+    def id_cred_r(self) -> CoseHeaderMap:
+        return self.id_cred_local
 
     @property
     def ciphertext_2(self) -> bytes:
@@ -120,7 +117,7 @@ class Responder(EdhocRole):
         else:
             # FIXME deduplicate
             cose_sign = Sign1Message(
-                phdr=self.cred_id,
+                phdr=self.id_cred_local,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=self.mac_2,
                 key=self.auth_key,
@@ -214,7 +211,7 @@ class Responder(EdhocRole):
         self.ciphertext_3 = self.msg_3.ciphertext
         decoded = EdhocMessage.decode(self.decrypt_msg_3(self.ciphertext_3))
 
-        self.cred_idi = decoded[0]
+        self.id_cred_i = decoded[0]
 
         if not self._verify_signature_or_mac3(signature_or_mac3=decoded[1]):
             return MessageError(err_msg='Signature verification failed').encode()
@@ -229,7 +226,7 @@ class Responder(EdhocRole):
 
         self._internal_state = EdhocState.EDHOC_SUCC
 
-        return self.msg_1.c_i, self._conn_id, app_aead.identifier, app_hash.identifier
+        return self.c_i, self.c_r, app_aead.identifier, app_hash.identifier
 
     def _verify_signature_or_mac3(self, signature_or_mac3: bytes) -> bool:
         # fixme
@@ -238,7 +235,7 @@ class Responder(EdhocRole):
 
         if not self.is_static_dh(self.remote_role):
             cose_sign = Sign1Message(
-                phdr=self.cred_idi,
+                phdr=self.id_cred_i,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=mac_3,
                 external_aad=cborstream([self.th_3, self.cred_i, *ead_3]))
@@ -302,7 +299,7 @@ class Responder(EdhocRole):
 
     @property
     def cred_r(self):
-        return self.cred
+        return self.cred_local
 
     @property
     def cred_i(self):

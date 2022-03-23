@@ -25,8 +25,8 @@ class Initiator(EdhocRole):
 
     def __init__(self,
                  method: Method,
-                 cred: Union[RPK, Certificate],
-                 cred_idi: CoseHeaderMap,
+                 cred_local: Union[RPK, Certificate],
+                 id_cred_i: CoseHeaderMap,
                  auth_key: RPK,
                  selected_cipher: Type['CS'],
                  supported_ciphers: List[Type['CS']],
@@ -40,8 +40,8 @@ class Initiator(EdhocRole):
         Create an EDHOC Initiator.
 
         :param method: EDHOC method type (signatures, static DH or a mix).
-        :param cred: The public authentication credentials of the Initiator.
-        :param cred_idi: The Initiator's credential identifier (a CBOR encoded COSE header map)
+        :param cred_local: The public authentication credentials of the Initiator.
+        :param id_cred_i: The Initiator's credential identifier (a CBOR encoded COSE header map)
         :param auth_key: The private authentication key (CoseKey) of the Responder.
         :param selected_cipher: Provide the selected cipher.
         :param supported_ciphers: A list of ciphers supported by the Responder.
@@ -53,8 +53,8 @@ class Initiator(EdhocRole):
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
 
-        super().__init__(cred,
-                         cred_idi,
+        super().__init__(cred_local,
+                         id_cred_i,
                          auth_key,
                          supported_ciphers,
                          c_i,
@@ -77,32 +77,28 @@ class Initiator(EdhocRole):
 
     @property
     def c_i(self):
-        c_i = self._conn_id
-
-        return c_i
+        return self._c_local
 
     @property
     def c_r(self):
-        c_r = self.msg_2.c_r
-
-        return c_r
+        return self.msg_2.c_r
 
     @property
-    def cred_idi(self) -> CoseHeaderMap:
-        return self.cred_id
+    def id_cred_i(self) -> CoseHeaderMap:
+        return self.id_cred_local
 
     @property
-    def cred_idr(self) -> CoseHeaderMap:
-        return self._cred_idr
+    def id_cred_r(self) -> CoseHeaderMap:
+        return self._id_cred_r
 
-    @cred_idr.setter
-    def cred_idr(self, value):
+    @id_cred_r.setter
+    def id_cred_r(self, value):
         if isinstance(value, int):
             value = {4: EdhocMessage.decode_bstr_id(value)}
         elif isinstance(value, bytes):
             value = {4: value}
 
-        self._cred_idr = value
+        self._id_cred_r = value
         self._populate_remote_details(value)
 
     @property
@@ -146,7 +142,7 @@ class Initiator(EdhocRole):
             cipher_suites=self.supported_ciphers,
             selected_cipher=self._selected_cipher,
             g_x=self.g_x,
-            c_i=self._conn_id,
+            c_i=self.c_i,
         )
 
         self._internal_state = EdhocState.MSG_1_SENT
@@ -161,7 +157,7 @@ class Initiator(EdhocRole):
 
         decoded = EdhocMessage.decode(self.decrypt_msg_2(self.msg_2.ciphertext))
 
-        self.cred_idr = decoded[0]
+        self.id_cred_r = decoded[0]
 
         if not self._verify_signature_or_mac2(signature_or_mac2=decoded[1]):
             self._internal_state = EdhocState.EDHOC_FAIL
@@ -184,7 +180,7 @@ class Initiator(EdhocRole):
 
         if not self.is_static_dh(self.remote_role):
             cose_sign = Sign1Message(
-                phdr=self.cred_idr,
+                phdr=self.id_cred_r,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=self.mac_2,
                 external_aad=cborstream([self.th_2, self.cred_r, *ead_2]))
@@ -209,7 +205,7 @@ class Initiator(EdhocRole):
         app_hash = self.cipher_suite.app_hash
 
         # pass the connection identifiers and the algorithms identifiers
-        return self._conn_id, self.msg_2.c_r, app_aead.identifier, app_hash.identifier
+        return self.c_i, self.c_r, app_aead.identifier, app_hash.identifier
 
     @property
     def ciphertext_3(self):
@@ -222,7 +218,7 @@ class Initiator(EdhocRole):
         else:
             # FIXME deduplicate
             cose_sign = Sign1Message(
-                phdr=self.cred_id,
+                phdr=self.id_cred_local,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=mac_3,
                 key=self.auth_key,
@@ -278,4 +274,4 @@ class Initiator(EdhocRole):
 
     @property
     def cred_i(self):
-        return self.cred
+        return self.cred_local

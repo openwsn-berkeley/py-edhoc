@@ -38,11 +38,11 @@ CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
 class EdhocRole(metaclass=ABCMeta):
 
     def __init__(self,
-                 cred: Union[RPK, Certificate],
-                 cred_id: CoseHeaderMap,
+                 cred_local: Union[RPK, Certificate],
+                 id_cred_local: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
-                 conn_id: Union[bytes, int],
+                 c_local: Union[bytes, int],
                  remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
                  aad1_cb: Optional[Callable[..., bytes]],
                  aad2_cb: Optional[Callable[..., bytes]],
@@ -51,26 +51,26 @@ class EdhocRole(metaclass=ABCMeta):
         """
         Abstract base class for the EDHOC Responder and Initiator roles.
 
-        :param cred: An RPK (Raw Public Key) or certificate
-        :param cred_id: The credential identifier (a COSE header map)
+        :param cred_local: An RPK (Raw Public Key) or certificate
+        :param id_cred_local: The credential identifier (a COSE header map)
         :param auth_key: The private authentication key (of type :class:`~cose.keys.ec2.EC2Key` or \
         :class:`~cose.keys.okp.OKPKey`). # noqa: E501
         :param supported_ciphers: A list of supported ciphers of type :class:`edhoc.definitions.CipherSuite`.
-        :param conn_id: The connection identifier to be used.
+        :param c_local: The connection identifier to be used.
         :param aad1_cb: A callback to pass received additional data to the application protocol.
         :param aad2_cb: A callback to pass additional data to the remote endpoint.
         :param aad3_cb: A callback to pass received additional data to the application protocol.
         :param ephemeral_key: Preload an (CoseKey) ephemeral key (if unset a random key will be generated).
         """
 
-        self.cred, self._local_authkey = self._parse_credentials(cred)
-        self.cred_id = cred_id
+        self.cred_local, self._local_authkey = self._parse_credentials(cred_local)
+        self.id_cred_local = id_cred_local
         self.auth_key = auth_key
         self.supported_ciphers = supported_ciphers
 
         self.remote_cred_cb = remote_cred_cb
 
-        self._conn_id = conn_id
+        self._c_local = c_local
         self.aad1_cb = aad1_cb
         self.aad2_cb = aad2_cb
         self.aad3_cb = aad3_cb
@@ -185,25 +185,17 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def cred_idi(self) -> CoseHeaderMap:
+    def id_cred_i(self) -> CoseHeaderMap:
         """ The credential identifier for the Initiator. """
 
         raise NotImplementedError()
 
     @property
-    def id_cred_i(self):
-        return self.cred_idi
-
-    @property
     @abstractmethod
-    def cred_idr(self) -> CoseHeaderMap:
+    def id_cred_r(self) -> CoseHeaderMap:
         """ The credential identifier for the Responder. """
 
         raise NotImplementedError()
-
-    @property
-    def id_cred_r(self):
-        return self.cred_idr
 
     @property
     @abstractmethod
