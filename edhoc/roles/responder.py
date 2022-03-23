@@ -281,7 +281,6 @@ class Responder(EdhocRole):
         # FIXME
         from cose.keys import OKPKey, EC2Key, SymmetricKey
         from cose.keys.keyparam import KpKeyOps, KpAlg
-        from cose.keys.keyops import EncryptOp
         cose_key = SymmetricKey(k=k_3, optional_params={KpKeyOps: [DecryptOp], KpAlg: self.cipher_suite.aead})
 
         return Enc0Message(uhdr={headers.IV: iv_3, headers.Algorithm: self.cipher_suite.aead},

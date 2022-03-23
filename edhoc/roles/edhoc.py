@@ -83,14 +83,6 @@ class EdhocRole(metaclass=ABCMeta):
 
         self._internal_state = EdhocState.EDHOC_WAIT
 
-    @functools.lru_cache()
-    def transcript(self, hash_func: Callable, hash_input: bytes) -> bytes:
-        """ Compute the transcript hash. """
-
-        transcript = hashes.Hash(hash_func())
-        transcript.update(hash_input)
-        return transcript.finalize()
-
     # FIXME deduplciate against transcript
     def hash(self, data):
         """Apply the H() function of the EDHOC specification, based on the
@@ -332,35 +324,6 @@ class EdhocRole(metaclass=ABCMeta):
     @property
     def th_4(self) -> bytes:
         return self.hash(cborstream([self.th_3, self.ciphertext_3]))
-
-    def _external_aad(self, cred: Union[Certificate, RPK], transcript: bytes, aad_cb: Callable[..., bytes]) -> CBOR:
-        """Build an unserialized external AAD out of a transcript hash, a cred
-        and AAD data.
-
-        As its format is shared among messages, the cred needs to be picked
-        suitably for the message (CRED_R in message 2, CRED_I in message 3);
-        depending on whether this is used in a creating or a verifying
-        capacity, self.cred or self.remote_cred needs to be passed in.
-        """
-        if isinstance(cred, OKPKey) or isinstance(cred, EC2Key):
-            encoded_credential = cred.encode()
-        elif isinstance(cred, Certificate):
-            encoded_credential = cbor2.dumps(cred.tbs_certificate_bytes)
-        else:
-            # TODO: this shouldn't be here, but since somes of the test vectors are not real certificates we need
-            #  this hack
-            encoded_credential = cbor2.dumps(cred)
-
-        aad = [cbor2.dumps(self.transcript(self.cipher_suite.hash.hash_cls, transcript)), encoded_credential]
-
-        if aad_cb is not None:
-            ad = aad_cb()
-
-            if ad != b'':
-                aad.append(ad)
-
-        aad = b"".join(aad)
-        return aad
 
     # FIXME reevaluate where we want to do these
     @functools.lru_cache()

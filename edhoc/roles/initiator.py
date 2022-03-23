@@ -183,7 +183,6 @@ class Initiator(EdhocRole):
         ead_2 = []
 
         if not self.is_static_dh(self.remote_role):
-            external_aad = self._external_aad(self.remote_cred, self._th2_input, self.aad2_cb)
             cose_sign = Sign1Message(
                 phdr=self.cred_idr,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
