@@ -116,13 +116,20 @@ class Responder(EdhocRole):
     def ciphertext_2(self) -> bytes:
         """ Create the ciphertext_2 message part from EDHOC message 2. """
 
+        # FIXME
+        ead_2 = []
+
         if self.is_static_dh('R'):
             signature_or_mac_2 = self.mac_2
         else:
-            raise NotImplementedError()
-
-        # FIXME
-        ead_2 = []
+            # FIXME deduplicate
+            cose_sign = Sign1Message(
+                phdr=self.cred_id,
+                uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
+                payload=self.mac_2,
+                key=self.auth_key,
+                external_aad=cborstream([self.th_2, self.cred_r, *ead_2]))
+            signature_or_mac_2 = cose_sign.compute_signature()
 
         plaintext = cborstream([compress_id_cred_x(self.id_cred_r), signature_or_mac_2, *ead_2])
         keystream_2 = self.edhoc_kdf(self.prk_2e, self.th_2, "KEYSTREAM_2", b"", len(plaintext))
@@ -237,13 +244,11 @@ class Responder(EdhocRole):
         mac_3 = self.edhoc_kdf(self.prk_4x3m, self.th_3, "MAC_3", cborstream([self.id_cred_i, self.cred_i, *ead_3]), self.mac_length_3)
 
         if not self.is_static_dh(self.remote_role):
-            raise NotImplementedError()
-            external_aad = self._external_aad(self.remote_cred, self._th3_input, self.aad3_cb)
             cose_sign = Sign1Message(
                 phdr=self.cred_idi,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=mac_3,
-                external_aad=external_aad)
+                external_aad=cborstream([self.th_3, self.cred_i, *ead_3]))
             # FIXME peeking into internals (probably best resolved at pycose level)
             cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac3

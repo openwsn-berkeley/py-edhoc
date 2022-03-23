@@ -188,14 +188,16 @@ class Initiator(EdhocRole):
         return self.msg_3.encode()
 
     def _verify_signature_or_mac2(self, signature_or_mac2: bytes) -> bool:
+        # FIXME
+        ead_2 = []
+
         if not self.is_static_dh(self.remote_role):
-            raise RuntimeError("Probably changed...")
             external_aad = self._external_aad(self.remote_cred, self._th2_input, self.aad2_cb)
             cose_sign = Sign1Message(
                 phdr=self.cred_idr,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=self.mac_2,
-                external_aad=external_aad)
+                external_aad=cborstream([self.th_2, self.cred_r, *ead_2]))
             # FIXME peeking into internals (probably best resolved at pycose level)
             cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac2
@@ -228,7 +230,14 @@ class Initiator(EdhocRole):
         if self.is_static_dh('I'):
             signature_or_mac_3 = mac_3
         else:
-            raise NotImplementedError("Sighn...")
+            # FIXME deduplicate
+            cose_sign = Sign1Message(
+                phdr=self.cred_id,
+                uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
+                payload=mac_3,
+                key=self.auth_key,
+                external_aad=cborstream([self.th_3, self.cred_i, *ead_3]))
+            signature_or_mac_3 = cose_sign.compute_signature()
 
         k_3 = self.edhoc_kdf(self.prk_3e2m, self.th_3, "K_3", b"", self.cipher_suite.aead.get_key_length())
         # FIXME IV lengthcA -- the object appears to still take 7 or 13...?

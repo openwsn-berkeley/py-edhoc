@@ -352,16 +352,14 @@ class EdhocRole(metaclass=ABCMeta):
         if self.is_static_dh('R'):
             return self.cipher_suite.edhoc_mac_length
         else:
-            # not sure what's the right property here
-            return self.cipher_suite.hash.output_size
+            return self.cipher_suite.hash.hash_cls.digest_size
 
     @property
     def mac_length_3(self) -> int:
         if self.is_static_dh('I'):
             return self.cipher_suite.edhoc_mac_length
         else:
-            # not sure what's the right property here
-            return self.cipher_suite.hash.output_size
+            return self.cipher_suite.hash.hash_cls.digest_size
 
     @property
     def mac_2(self) -> bytes:
