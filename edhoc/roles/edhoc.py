@@ -308,6 +308,18 @@ class EdhocRole(metaclass=ABCMeta):
                 )
 
     @property
+    def mac_3(self) -> bytes:
+        # FIXME
+        ead_3 = []
+        return self.edhoc_kdf(
+                self.prk_4x3m,
+                self.th_3,
+                "MAC_3",
+                cborstream([self.id_cred_i, self.cred_i, *ead_3]),
+                self.mac_length_3,
+                )
+
+    @property
     def th_3(self) -> bytes:
         th_2 = self.th_2
         ciphertext_2 = self.ciphertext_2

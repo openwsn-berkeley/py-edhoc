@@ -231,20 +231,19 @@ class Responder(EdhocRole):
     def _verify_signature_or_mac3(self, signature_or_mac3: bytes) -> bool:
         # fixme
         ead_3 = []
-        mac_3 = self.edhoc_kdf(self.prk_4x3m, self.th_3, "MAC_3", cborstream([self.id_cred_i, self.cred_i, *ead_3]), self.mac_length_3)
 
         if not self.is_static_dh(self.remote_role):
             cose_sign = Sign1Message(
                 phdr=self.id_cred_i,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
-                payload=mac_3,
+                payload=self.mac_3,
                 external_aad=cborstream([self.th_3, self.cred_i, *ead_3]))
             # FIXME peeking into internals (probably best resolved at pycose level)
             cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac3
             return cose_sign.verify_signature()
         else:
-            return signature_or_mac3 == mac_3
+            return signature_or_mac3 == self.mac_3
 
     def _verify_cipher_selection(self, selected: CipherSuite, supported: List[CipherSuite]) -> bool:
         """

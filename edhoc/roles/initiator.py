@@ -211,16 +211,15 @@ class Initiator(EdhocRole):
     def ciphertext_3(self):
         # FIXME
         ead_3 = []
-        mac_3 = self.edhoc_kdf(self.prk_4x3m, self.th_3, "MAC_3", cborstream([self.id_cred_i, self.cred_i, *ead_3]), self.mac_length_3)
 
         if self.is_static_dh('I'):
-            signature_or_mac_3 = mac_3
+            signature_or_mac_3 = self.mac_3
         else:
             # FIXME deduplicate
             cose_sign = Sign1Message(
                 phdr=self.id_cred_local,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
-                payload=mac_3,
+                payload=self.mac_3,
                 key=self.auth_key,
                 external_aad=cborstream([self.th_3, self.cred_i, *ead_3]))
             signature_or_mac_3 = cose_sign.compute_signature()
