@@ -59,6 +59,14 @@ class cached_property_singledelete(functools.cached_property):
 
 
 class EdhocRole(metaclass=ABCMeta):
+    ## EDHOC method used in this exchange. Set by subclasses as soon as it is available.
+    method: Method
+
+    ## H(message_1). Set by subclasses as soon as it is available.
+    hash_of_message_1: bytes
+
+    ## The selected cipher suite. Set by subclasses as soon as it is available.
+    cipher_suite: 'CS'
 
     def __init__(self,
                  cred_local: Union[RPK, Certificate],
@@ -100,7 +108,6 @@ class EdhocRole(metaclass=ABCMeta):
         self.ephemeral_key = ephemeral_key
 
         # messages
-        self.msg_1: Optional[MessageOne] = None
         self.msg_2: Optional[MessageTwo] = None
         self.msg_3: Optional[MessageThree] = None
 
@@ -177,13 +184,6 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def method(self) -> Method:
-        """ Returns the EDHOC method type. """
-
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
     def c_i(self) -> bytes:
         """ Returns the Initiator's connection identifier if required by the correlation value, otherwise an empty
         byte string. """
@@ -247,11 +247,6 @@ class EdhocRole(metaclass=ABCMeta):
 
         raise NotImplementedError()
 
-    @property
-    @abstractmethod
-    def cipher_suite(self) -> 'CS':
-        raise NotImplementedError()
-
     def extract(self, salt, ikm):
         # FIXME: Comprehensively enumerate SHA-2 algorithms, or define a property there
         if self.cipher_suite.hash in (cose.algorithms.Sha256, cose.algorithms.Sha384):
@@ -281,8 +276,7 @@ class EdhocRole(metaclass=ABCMeta):
 
     @cached_property_singledelete
     def th_2(self) -> bytes:
-        msg_1_hash = self.hash(self.msg_1.encoded)
-        input_data = [msg_1_hash, self.g_y, self.c_r]
+        input_data = [self.hash_of_message_1, self.g_y, self.c_r]
 
         return self.hash(cborstream(input_data))
 

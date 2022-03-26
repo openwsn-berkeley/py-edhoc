@@ -62,26 +62,8 @@ class Responder(EdhocRole):
                          ephemeral_key)
 
     @property
-    def cipher_suite(self) -> 'CS':
-        if self.msg_1 is None:
-            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
-        else:
-            if not self._verify_cipher_selection(self.msg_1.selected_cipher, self.msg_1.cipher_suites):
-                raise EdhocException("Invalid cipher suite setup")
-            return CipherSuite.from_id(self.msg_1.selected_cipher)
-
-    @property
-    def method(self):
-        """ Get the EDHOC method value for the method parameter in EDHOC message 1. """
-
-        if self.msg_1 is None:
-            raise EdhocException("Message 1 not received. Cannot derive selected cipher suite.")
-
-        return self.msg_1.method
-
-    @property
     def c_i(self):
-        return self.msg_1.c_i
+        return self._c_i
 
     @property
     def c_r(self):
@@ -135,7 +117,7 @@ class Responder(EdhocRole):
 
     @property
     def g_x(self) -> bytes:
-        return self.msg_1.g_x
+        return self._g_x
 
     @property
     def local_pubkey(self) -> RPK:
@@ -170,17 +152,22 @@ class Responder(EdhocRole):
         :returns: Bytes of an EDHOC message 2 or an EDHOC error message.
         """
 
-        self.msg_1 = message_one
+        self.method = message_one.method
 
         self._internal_state = EdhocState.MSG_1_RCVD
 
-        if not self._verify_cipher_selection(self.msg_1.selected_cipher, self.msg_1.cipher_suites):
+        if not self._verify_cipher_selection(message_one.selected_cipher, message_one.cipher_suites):
             self._internal_state = EdhocState.EDHOC_FAIL
 
             return MessageError(err_msg="").encode()
 
+        self.cipher_suite = message_one.selected_cipher
+        self._c_i = message_one.c_i
+        self._g_x = message_one.g_x
+        self.hash_of_message_1 = self.hash(message_one.encoded)
+
         if self.aad1_cb is not None:
-            self.aad1_cb(self.msg_1.aad1)
+            self.aad1_cb(message_one.aad1)
 
         self._generate_ephemeral_key()
 

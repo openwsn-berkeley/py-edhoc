@@ -64,16 +64,8 @@ class Initiator(EdhocRole):
                          aad3_cb,
                          ephemeral_key)
 
-        self._selected_cipher = CipherSuite.from_id(selected_cipher)
-        self._method = Method(method)
-
-    @property
-    def cipher_suite(self) -> 'CS':
-        return self._selected_cipher
-
-    @property
-    def method(self) -> Method:
-        return self._method
+        self.cipher_suite = CipherSuite.from_id(selected_cipher)
+        self.method = Method(method)
 
     @property
     def c_i(self):
@@ -134,17 +126,19 @@ class Initiator(EdhocRole):
     def create_message_one(self) -> bytes:
         self._generate_ephemeral_key()
 
-        self.msg_1 = MessageOne(
-            method=self._method,
+        msg_1 = MessageOne(
+            method=self.method,
             cipher_suites=self.supported_ciphers,
-            selected_cipher=self._selected_cipher,
+            selected_cipher=self.cipher_suite,
             g_x=self.g_x,
             c_i=self.c_i,
         )
 
         self._internal_state = EdhocState.MSG_1_SENT
 
-        return self.msg_1.encode()
+        encoded = msg_1.encode()
+        self.hash_of_message_1 = self.hash(encoded)
+        return encoded
 
     def create_message_three(self, message_two: bytes):
 
