@@ -38,7 +38,7 @@ ActualCred = Union[Certificate, CCS, CWT]
 ## contains the associated key (which is useful for exotic creds from which
 ## _parse_credentials an not extract the public key)
 PreparsedCred = Tuple[ActualCred, RPK]
-ParsableCred = Union[ActualCred, PreparsedCred]
+ParsableCred = Union[Certificate, CCS, PreparsedCred]
 CBOR = bytes
 CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
 
