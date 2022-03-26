@@ -25,11 +25,11 @@ class Responder(EdhocRole):
     remote_role = 'I'
 
     def __init__(self,
-                 cred_local: Union[RPK, Certificate],
+                 cred_local: Cred,
                  id_cred_r: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
-                 remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
+                 remote_cred_cb: Callable[[CoseHeaderMap], Cred],
                  c_r: Union[bytes, int],
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,

@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from cose.headers import CoseHeaderAttribute
 
 RPK = Union[EC2Key, OKPKey]
+Cred = Union[RPK, Certificate]
 CBOR = bytes
 CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
 
@@ -74,11 +75,11 @@ class EdhocRole(metaclass=ABCMeta):
     c_r: Union[bytes, int]
 
     def __init__(self,
-                 cred_local: Union[RPK, Certificate],
+                 cred_local: Cred,
                  id_cred_local: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
-                 remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
+                 remote_cred_cb: Callable[[CoseHeaderMap], Cred],
                  aad1_cb: Optional[Callable[..., bytes]],
                  aad2_cb: Optional[Callable[..., bytes]],
                  aad3_cb: Optional[Callable[..., bytes]],
@@ -347,7 +348,7 @@ class EdhocRole(metaclass=ABCMeta):
             self.ephemeral_key = EC2Key.generate_key(crv=chosen_suite.dh_curve)
 
     @staticmethod
-    def _parse_credentials(cred: Union[RPK, 'Certificate']) -> Tuple[Union[Certificate, RPK], RPK]:
+    def _parse_credentials(cred: Cred) -> Tuple[Cred, RPK]:
         """
         Internal helper function that parser credentials and extracts the public key.
         """
