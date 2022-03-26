@@ -107,9 +107,6 @@ class Initiator(EdhocRole):
 
     @property
     def g_x(self) -> bytes:
-
-        self._generate_ephemeral_key()
-
         return self.ephemeral_key.x
 
     @property

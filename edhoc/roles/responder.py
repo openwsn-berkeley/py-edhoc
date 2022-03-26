@@ -131,9 +131,6 @@ class Responder(EdhocRole):
 
     @property
     def g_y(self) -> bytes:
-
-        self._generate_ephemeral_key()
-
         return self.ephemeral_key.x
 
     @property

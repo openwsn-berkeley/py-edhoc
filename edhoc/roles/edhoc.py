@@ -357,6 +357,8 @@ class EdhocRole(metaclass=ABCMeta):
         :return: None
         """
 
+        # This is the case during testing when ephemeral keys from test vectors
+        # are used; FIXME: ensure that this really happens *only* in testing
         if self.ephemeral_key is not None:
             return
 
