@@ -54,20 +54,13 @@ class Responder(EdhocRole):
                          id_cred_r,
                          auth_key,
                          supported_ciphers,
-                         c_r,
                          remote_cred_cb,
                          aad1_cb,
                          aad2_cb,
                          aad3_cb,
                          ephemeral_key)
 
-    @property
-    def c_i(self):
-        return self._c_i
-
-    @property
-    def c_r(self):
-        return self._c_local
+        self.c_r = c_r
 
     @property
     def id_cred_i(self) -> CoseHeaderMap:
@@ -162,7 +155,7 @@ class Responder(EdhocRole):
             return MessageError(err_msg="").encode()
 
         self.cipher_suite = message_one.selected_cipher
-        self._c_i = message_one.c_i
+        self.c_i = message_one.c_i
         self._g_x = message_one.g_x
         self.hash_of_message_1 = self.hash(message_one.encoded)
 

@@ -57,23 +57,16 @@ class Initiator(EdhocRole):
                          id_cred_i,
                          auth_key,
                          supported_ciphers,
-                         c_i,
                          remote_cred_cb,
                          aad1_cb,
                          aad2_cb,
                          aad3_cb,
                          ephemeral_key)
 
+        self.c_i = c_i
+
         self.cipher_suite = CipherSuite.from_id(selected_cipher)
         self.method = Method(method)
-
-    @property
-    def c_i(self):
-        return self._c_local
-
-    @property
-    def c_r(self):
-        return self.msg_2.c_r
 
     @property
     def id_cred_i(self) -> CoseHeaderMap:
@@ -143,6 +136,7 @@ class Initiator(EdhocRole):
     def create_message_three(self, message_two: bytes):
 
         self.msg_2 = MessageTwo.decode(message_two, suite=self.cipher_suite)
+        self.c_r = self.msg_2.c_r
 
         self._internal_state = EdhocState.MSG_2_RCVD
 

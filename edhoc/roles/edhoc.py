@@ -68,12 +68,16 @@ class EdhocRole(metaclass=ABCMeta):
     ## The selected cipher suite. Set by subclasses as soon as it is available.
     cipher_suite: 'CS'
 
+    ## Connection identifier used by the initiator.
+    c_i: Union[bytes, int]
+    ## Connection identifier used by the responder.
+    c_r: Union[bytes, int]
+
     def __init__(self,
                  cred_local: Union[RPK, Certificate],
                  id_cred_local: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
-                 c_local: Union[bytes, int],
                  remote_cred_cb: Callable[[CoseHeaderMap], Union[Certificate, RPK]],
                  aad1_cb: Optional[Callable[..., bytes]],
                  aad2_cb: Optional[Callable[..., bytes]],
@@ -101,7 +105,6 @@ class EdhocRole(metaclass=ABCMeta):
 
         self.remote_cred_cb = remote_cred_cb
 
-        self._c_local = c_local
         self.aad1_cb = aad1_cb
         self.aad2_cb = aad2_cb
         self.aad3_cb = aad3_cb
@@ -181,22 +184,6 @@ class EdhocRole(metaclass=ABCMeta):
 
     def exporter(self, label: str, context: bytes, length: int):
         return self.edhoc_kdf(self.prk_4x3m, self.th_4, label, context, length)
-
-    @property
-    @abstractmethod
-    def c_i(self) -> bytes:
-        """ Returns the Initiator's connection identifier if required by the correlation value, otherwise an empty
-        byte string. """
-
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def c_r(self) -> bytes:
-        """ Returns the Responder's connection identifier if required by the correlation value, otherwise an empty
-        byte string. """
-
-        raise NotImplementedError()
 
     @property
     @abstractmethod
