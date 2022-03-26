@@ -5,6 +5,7 @@ from typing import Callable, Any, TypeVar, NamedTuple
 import cbor2
 from cose.algorithms import AESCCM1664128, Sha256, EdDSA, AESCCM16128128, Es256, A128GCM, A256GCM, Sha384, Es384
 from cose.keys.curves import X25519, Ed25519, P256, P384
+from cose.keys import CoseKey
 
 from edhoc.exceptions import EdhocException
 
@@ -250,6 +251,30 @@ class EdhocKDFInfo(NamedTuple):
     def encode(self) -> bytes:
         return cborstream(self)
 
+class CCS:
+    """A CWT Claims Set (containing an unencrypted COSE key in its CNF)"""
+    def __init__(self, encoded: bytes):
+        """Decode a CWT. Raises some ValueError if the set can not be
+        decoded."""
+        self.encoded = encoded
+        self._set_details_from(cbor2.loads(encoded))
+
+    @classmethod
+    def from_unencoded(cls, unencoded: dict):
+        """Load a CWT from a dictionary that all parties agree to encoded
+        canonically"""
+        # The optimization of going directly to _set_details is probably
+        # unwarranted.
+        return cls(cbor2.dumps(unencoded))
+
+    def _set_details_from(self, d: dict):
+        CWT_SUB = 2
+        CWT_CNF = 8
+        CNF_KEY = 1
+        self.sub = d.get(CWT_SUB, None)
+        cnf = d[CWT_CNF]
+        key = cnf[CNF_KEY]
+        self.key = CoseKey.from_dict(key)
 
 CS = TypeVar('CS', bound='CipherSuite')
 

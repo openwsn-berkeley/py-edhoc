@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey, X448Pr
 from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand, HKDF
 from cryptography.x509 import Certificate
 
-from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation, EdhocState, cborstream
+from edhoc.definitions import CipherSuite, Method, EdhocKDFInfo, Correlation, EdhocState, cborstream, CCS
 from edhoc.exceptions import EdhocException
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage
 
@@ -32,7 +32,6 @@ if TYPE_CHECKING:
     from cose.headers import CoseHeaderAttribute
 
 RPK = Union[EC2Key, OKPKey]
-CCS = NewType("CCS", bytes)
 CWT = NewType("CWT", bytes)
 ActualCred = Union[Certificate, CCS, CWT]
 ## Tuple that can be fed to a EdhocRole as own or remote cred that already
@@ -366,6 +365,10 @@ class EdhocRole(metaclass=ABCMeta):
                                                                   serialization.PublicFormat.Raw)
         elif isinstance(cred, tuple):
             cred, auth_key = cred
+        elif isinstance(cred, CCS):
+            auth_key = cred.key
+            # FIXME: reencoding, find short circuit
+            cred = cbor2.loads(cred.encoded)
         else:
             raise EdhocException("Invalid credentials")
 
