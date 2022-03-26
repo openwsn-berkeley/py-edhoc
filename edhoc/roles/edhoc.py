@@ -176,11 +176,6 @@ class EdhocRole(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @property
-    def c_r(self) -> bytes:
-        # rename to current identifiers
-        return self.c_r
-
-    @property
     @abstractmethod
     def id_cred_i(self) -> CoseHeaderMap:
         """ The credential identifier for the Initiator. """
@@ -233,12 +228,6 @@ class EdhocRole(metaclass=ABCMeta):
     @abstractmethod
     def cipher_suite(self) -> 'CS':
         raise NotImplementedError()
-
-    @property
-    def data_3(self) -> CBOR:
-        """ Create the data_3 message part from EDHOC message 3. """
-
-        return cbor2.dumps(self.c_r)
 
     def extract(self, salt, ikm):
         # FIXME: Comprehensively enumerate SHA-2 algorithms, or define a property there
@@ -326,10 +315,6 @@ class EdhocRole(metaclass=ABCMeta):
     @functools.lru_cache()
     def edhoc_kdf(self, prk: bytes, transcript_hash: bytes, label: str, context: bytes, length: int) -> bytes:
         """Implementation of EDHOC-KDF() of the specification"""
-
-        # FIXME: This is duplicating _hkdf_expand, and expanding the info
-        # changes right in place. Remove them once this is done.
-
         hash_func = self.cipher_suite.hash.hash_cls
 
         info = EdhocKDFInfo(
