@@ -111,7 +111,6 @@ class EdhocRole(metaclass=ABCMeta):
         self.ephemeral_key = ephemeral_key
 
         # messages
-        self.msg_2: Optional[MessageTwo] = None
         self.msg_3: Optional[MessageThree] = None
 
         self._internal_state = EdhocState.EDHOC_WAIT

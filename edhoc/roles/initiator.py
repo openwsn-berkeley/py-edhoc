@@ -88,7 +88,7 @@ class Initiator(EdhocRole):
 
     @property
     def g_y(self) -> bytes:
-        return self.msg_2.g_y
+        return self._g_y
 
     @property
     def g_x(self) -> bytes:
@@ -135,12 +135,13 @@ class Initiator(EdhocRole):
 
     def create_message_three(self, message_two: bytes):
 
-        self.msg_2 = MessageTwo.decode(message_two, suite=self.cipher_suite)
-        self.c_r = self.msg_2.c_r
+        msg_2 = MessageTwo.decode(message_two, suite=self.cipher_suite)
+        self.c_r = msg_2.c_r
+        self._g_y = msg_2.g_y
 
         self._internal_state = EdhocState.MSG_2_RCVD
 
-        decoded = EdhocMessage.decode(self.decrypt_msg_2(self.msg_2.ciphertext))
+        decoded = EdhocMessage.decode(self.decrypt_msg_2(msg_2.ciphertext))
 
         self.id_cred_r = decoded[0]
 
