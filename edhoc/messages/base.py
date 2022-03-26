@@ -11,7 +11,7 @@ class EdhocMessage(metaclass=ABCMeta):
     """ Abstract base class for all EDHOC messages. """
 
     @classmethod
-    def decode(cls, received: BytesIO) -> list:
+    def decode(cls, received: bytes) -> list:
         """
         Decode a received EDHOC message.
 
@@ -19,9 +19,7 @@ class EdhocMessage(metaclass=ABCMeta):
         :return: a decode EDHOC message
         """
 
-        if isinstance(received, bytes):
-            warnings.warn("%s received bytes for decoding")
-            received = BytesIO(received)
+        received = BytesIO(received)
 
         decoded = []
 
