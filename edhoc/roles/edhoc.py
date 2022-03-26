@@ -1,7 +1,7 @@
 import functools
 from abc import ABCMeta, abstractmethod
 from binascii import hexlify
-from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKING, Tuple
+from typing import List, Dict, Optional, Callable, Union, Any, Type, TYPE_CHECKING, Tuple, NewType
 
 import cbor2
 import cose
@@ -32,7 +32,9 @@ if TYPE_CHECKING:
     from cose.headers import CoseHeaderAttribute
 
 RPK = Union[EC2Key, OKPKey]
-Cred = Union[RPK, Certificate]
+CCS = NewType(bytes)
+CWT = NewType(bytes)
+Cred = Union[Certificate, CCS, CWT]
 CBOR = bytes
 CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
 
@@ -87,7 +89,7 @@ class EdhocRole(metaclass=ABCMeta):
         """
         Abstract base class for the EDHOC Responder and Initiator roles.
 
-        :param cred_local: An RPK (Raw Public Key) or certificate
+        :param cred_local: A certificate, CWT or CCS
         :param id_cred_local: The credential identifier (a COSE header map)
         :param auth_key: The private authentication key (of type :class:`~cose.keys.ec2.EC2Key` or \
         :class:`~cose.keys.okp.OKPKey`). # noqa: E501
