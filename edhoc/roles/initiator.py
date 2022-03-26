@@ -154,11 +154,11 @@ class Initiator(EdhocRole):
         if self.aad2_cb is not None:
             self.aad2_cb(ad_2)
 
-        self.msg_3 = MessageThree(self.ciphertext_3)
+        msg_3 = MessageThree(self.ciphertext_3)
 
         self._internal_state = EdhocState.MSG_3_SENT
 
-        return self.msg_3.encode()
+        return msg_3.encode()
 
     def _verify_signature_or_mac2(self, signature_or_mac2: bytes) -> bool:
         # FIXME

@@ -110,9 +110,6 @@ class EdhocRole(metaclass=ABCMeta):
         self.aad3_cb = aad3_cb
         self.ephemeral_key = ephemeral_key
 
-        # messages
-        self.msg_3: Optional[MessageThree] = None
-
         self._internal_state = EdhocState.EDHOC_WAIT
 
     def hash(self, data):

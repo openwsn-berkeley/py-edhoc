@@ -180,12 +180,12 @@ class Responder(EdhocRole):
          the initiator and responder's connection identifiers and the application AEAD and hash algorithms.
         """
 
-        self.msg_3 = message_three
+        msg_3 = message_three
 
         self._internal_state = EdhocState.MSG_3_RCVD
 
         # FIXME how/where store
-        self.ciphertext_3 = self.msg_3.ciphertext
+        self.ciphertext_3 = msg_3.ciphertext
         decoded = EdhocMessage.decode(self.decrypt_msg_3(self.ciphertext_3))
 
         self.id_cred_i = decoded[0]
