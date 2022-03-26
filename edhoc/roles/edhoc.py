@@ -243,13 +243,6 @@ class EdhocRole(metaclass=ABCMeta):
 
         return cbor2.dumps(self.c_r)
 
-    @property
-    def _th2_input(self) -> CBOR:
-        # FIXME once this is used we can probably do away with msg_1 entirely
-        msg_1_hash = self.hash(self.msg_1.encoded)
-        input_data = [msg_1_hash, self.g_y, self.c_r]
-        return b''.join(cbor2.dumps(i) for i in input_data)
-
     def extract(self, salt, ikm):
         # FIXME: Comprehensively enumerate SHA-2 algorithms, or define a property there
         if self.cipher_suite.hash in (cose.algorithms.Sha256, cose.algorithms.Sha384):
@@ -279,7 +272,10 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     def th_2(self) -> bytes:
-        return self.hash(self._th2_input)
+        msg_1_hash = self.hash(self.msg_1.encoded)
+        input_data = [msg_1_hash, self.g_y, self.c_r]
+
+        return self.hash(cborstream(input_data))
 
     @property
     def mac_length_2(self) -> int:
