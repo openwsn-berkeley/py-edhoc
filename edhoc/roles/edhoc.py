@@ -36,6 +36,9 @@ RPK = Union[EC2Key, OKPKey]
 ## contains the serialization of any credential, and its associated key (which
 ## is useful for exotic creds from which _parse_credentials an not extract the
 ## public key)
+##
+## Note that the preparsed cred (first item) needs to be preencoded as a CBOR
+## item, see also the cred_i / cred_r property.
 PreparsedCred = Tuple[bytes, RPK]
 ParsableCred = Union[Certificate, CCS, PreparsedCred]
 CBOR = bytes
@@ -291,7 +294,7 @@ class EdhocRole(metaclass=ABCMeta):
                 self.prk_3e2m,
                 self.th_2,
                 "MAC_2",
-                cborstream([self.id_cred_r, self.cred_r, *ead_2]),
+                cbor2.dumps(self.id_cred_r) + self.cred_r + cborstream(ead_2),
                 self.mac_length_2,
                 )
 
@@ -303,7 +306,7 @@ class EdhocRole(metaclass=ABCMeta):
                 self.prk_4x3m,
                 self.th_3,
                 "MAC_3",
-                cborstream([self.id_cred_i, self.cred_i, *ead_3]),
+                cbor2.dumps(self.id_cred_i) + self.cred_i + cborstream(ead_3),
                 self.mac_length_3,
                 )
 
@@ -358,14 +361,13 @@ class EdhocRole(metaclass=ABCMeta):
         Internal helper function that parser credentials and extracts the public key.
         """
         if isinstance(cred, Certificate):
-            cred, auth_key = cred, cred.public_key().public_bytes(serialization.Encoding.Raw,
+            cred, auth_key = cbor2.dumps(cred), cred.public_key().public_bytes(serialization.Encoding.Raw,
                                                                   serialization.PublicFormat.Raw)
         elif isinstance(cred, tuple):
             cred, auth_key = cred
         elif isinstance(cred, CCS):
             auth_key = cred.key
-            # FIXME: reencoding, find short circuit
-            cred = cbor2.loads(cred.encoded)
+            cred = cred.encoded
         else:
             raise EdhocException("Invalid credentials")
 
@@ -376,10 +378,18 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def cred_i(self):
+    def cred_i(self) -> bytes:
+        """CBOR encoded initiator credential.
+
+        This is used in full CBOR encoded form because these are not generally
+        expected to be canonically encoded."""
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def cred_r(self):
+    def cred_r(self) -> bytes:
+        """CBOR encoded responder credential
+
+        This is used in full CBOR encoded form because these are not generally
+        expected to be canonically encoded."""
         raise NotImplementedError()

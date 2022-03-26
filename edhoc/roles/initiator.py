@@ -169,7 +169,7 @@ class Initiator(EdhocRole):
                 phdr=self.id_cred_r,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=self.mac_2,
-                external_aad=cborstream([self.th_2, self.cred_r, *ead_2]))
+                external_aad=cbor2.dumps(self.th_2) + self.cred_r + cborstream(ead_2))
             # FIXME peeking into internals (probably best resolved at pycose level)
             cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac2
@@ -207,7 +207,7 @@ class Initiator(EdhocRole):
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=self.mac_3,
                 key=self.auth_key,
-                external_aad=cborstream([self.th_3, self.cred_i, *ead_3]))
+                external_aad=cbor2.dumps(self.th_3) + self.cred_i + cborstream(ead_3))
             signature_or_mac_3 = cose_sign.compute_signature()
 
         k_3 = self.edhoc_kdf(self.prk_3e2m, self.th_3, "K_3", b"", self.cipher_suite.aead.get_key_length())

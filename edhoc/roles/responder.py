@@ -96,7 +96,7 @@ class Responder(EdhocRole):
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=self.mac_2,
                 key=self.auth_key,
-                external_aad=cborstream([self.th_2, self.cred_r, *ead_2]))
+                external_aad=cbor2.dumps(self.th_2) + self.cred_r + cborstream(ead_2))
             signature_or_mac_2 = cose_sign.compute_signature()
 
         plaintext = cborstream([compress_id_cred_x(self.id_cred_r), signature_or_mac_2, *ead_2])
@@ -214,7 +214,7 @@ class Responder(EdhocRole):
                 phdr=self.id_cred_i,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=self.mac_3,
-                external_aad=cborstream([self.th_3, self.cred_i, *ead_3]))
+                external_aad=cbor2.dumps(self.th_3) + self.cred_i + cborstream(ead_3))
             # FIXME peeking into internals (probably best resolved at pycose level)
             cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac3
