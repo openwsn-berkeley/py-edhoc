@@ -358,9 +358,7 @@ class EdhocRole(metaclass=ABCMeta):
         """
         Internal helper function that parser credentials and extracts the public key.
         """
-        if isinstance(cred, EC2Key) or isinstance(cred, OKPKey):
-            cred, auth_key = cred, cred
-        elif isinstance(cred, Certificate):
+        if isinstance(cred, Certificate):
             cred, auth_key = cred, cred.public_key().public_bytes(serialization.Encoding.Raw,
                                                                   serialization.PublicFormat.Raw)
         elif isinstance(cred, tuple):
