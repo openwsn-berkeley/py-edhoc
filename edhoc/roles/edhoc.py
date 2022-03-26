@@ -245,8 +245,8 @@ class EdhocRole(metaclass=ABCMeta):
 
     @property
     def _th2_input(self) -> CBOR:
-        # FIXME re-encoding relying on deterministic encoding which we should (and that'd have been easier if create_message_two didn't take a decoded Message)
-        msg_1_hash = self.hash(self.msg_1.encode())
+        # FIXME once this is used we can probably do away with msg_1 entirely
+        msg_1_hash = self.hash(self.msg_1.encoded)
         input_data = [msg_1_hash, self.g_y, self.c_r]
         return b''.join(cbor2.dumps(i) for i in input_data)
 

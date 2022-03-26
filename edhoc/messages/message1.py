@@ -12,6 +12,11 @@ if TYPE_CHECKING:
 
 
 class MessageOne(EdhocMessage):
+    ## Stored at decoding (or encoding, for sent messages) time to contain the
+    ## full byte string of the message, including any padding. (Unlike later
+    ## transcripts, the full message goes in).
+    encoded: bytes
+
     @classmethod
     def decode(cls, received) -> 'MessageOne':
         """
@@ -42,6 +47,8 @@ class MessageOne(EdhocMessage):
             cipher_suites=[CipherSuite.from_id(c) for c in supported_ciphers],
             g_x=g_x,
             c_i=c_i)
+
+        msg.encoded = received
 
         if aad:
             raise NotImplementedError("AAD changed")
@@ -94,7 +101,9 @@ class MessageOne(EdhocMessage):
             raise NotImplementedError("AAD stuff changed")
             msg.append(cbor2.dumps(self.aad1))
 
-        return b"".join(cbor2.dumps(chunk) for chunk in msg)
+        # FIXME We might want to have "encode precisely once" semantics more generally
+        self.encoded = b"".join(cbor2.dumps(chunk) for chunk in msg)
+        return self.encoded
 
     def __repr__(self) -> str:
         output = f'<MessageOne: [{self.method}, {self.selected_cipher} | {self.cipher_suites}, ' \
