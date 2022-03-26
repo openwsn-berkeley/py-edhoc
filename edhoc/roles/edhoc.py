@@ -32,8 +32,8 @@ if TYPE_CHECKING:
     from cose.headers import CoseHeaderAttribute
 
 RPK = Union[EC2Key, OKPKey]
-CCS = NewType(bytes)
-CWT = NewType(bytes)
+CCS = NewType("CCS", bytes)
+CWT = NewType("CWT", bytes)
 Cred = Union[Certificate, CCS, CWT]
 CBOR = bytes
 CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
