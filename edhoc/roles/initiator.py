@@ -12,7 +12,7 @@ from cose.messages import Enc0Message, Sign1Message
 
 from edhoc.definitions import CipherSuite, Method, Correlation, EdhocState, bytewise_xor, cborstream, compress_id_cred_x
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage, MessageError
-from edhoc.roles.edhoc import EdhocRole, CoseHeaderMap, RPK, cached_property_singledelete
+from edhoc.roles.edhoc import EdhocRole, CoseHeaderMap, ParsableCred, RPK, cached_property_singledelete
 
 if TYPE_CHECKING:
     from edhoc.definitions import CS
@@ -25,12 +25,12 @@ class Initiator(EdhocRole):
 
     def __init__(self,
                  method: Method,
-                 cred_local: Cred,
+                 cred_local: ParsableCred,
                  id_cred_i: CoseHeaderMap,
                  auth_key: RPK,
                  selected_cipher: Type['CS'],
                  supported_ciphers: List[Type['CS']],
-                 remote_cred_cb:  Callable[[CoseHeaderMap], Cred],
+                 remote_cred_cb:  Callable[[CoseHeaderMap], ParsableCred],
                  c_i: Union[bytes, int],
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,

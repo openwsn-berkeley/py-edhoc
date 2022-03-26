@@ -34,7 +34,12 @@ if TYPE_CHECKING:
 RPK = Union[EC2Key, OKPKey]
 CCS = NewType("CCS", bytes)
 CWT = NewType("CWT", bytes)
-Cred = Union[Certificate, CCS, CWT]
+ActualCred = Union[Certificate, CCS, CWT]
+## Tuple that can be fed to a EdhocRole as own or remote cred that already
+## contains the associated key (which is useful for exotic creds from which
+## _parse_credentials an not extract the public key)
+PreparsedCred = Tuple[ActualCred, RPK]
+ParsableCred = Union[ActualCred, PreparsedCred]
 CBOR = bytes
 CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
 
@@ -77,11 +82,11 @@ class EdhocRole(metaclass=ABCMeta):
     c_r: Union[bytes, int]
 
     def __init__(self,
-                 cred_local: Cred,
+                 cred_local: ParsableCred,
                  id_cred_local: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
-                 remote_cred_cb: Callable[[CoseHeaderMap], Cred],
+                 remote_cred_cb: Callable[[CoseHeaderMap], ParsableCred],
                  aad1_cb: Optional[Callable[..., bytes]],
                  aad2_cb: Optional[Callable[..., bytes]],
                  aad3_cb: Optional[Callable[..., bytes]],
@@ -350,7 +355,7 @@ class EdhocRole(metaclass=ABCMeta):
             self.ephemeral_key = EC2Key.generate_key(crv=chosen_suite.dh_curve)
 
     @staticmethod
-    def _parse_credentials(cred: Cred) -> Tuple[Cred, RPK]:
+    def _parse_credentials(cred: ParsableCred) -> Tuple[ActualCred, RPK]:
         """
         Internal helper function that parser credentials and extracts the public key.
         """

@@ -13,7 +13,7 @@ from cose.messages import Enc0Message, Sign1Message
 from edhoc.definitions import CipherSuite, Correlation, EdhocState, cborstream, compress_id_cred_x, bytewise_xor
 from edhoc.exceptions import EdhocException
 from edhoc.messages import MessageOne, MessageError, MessageThree, EdhocMessage, MessageTwo
-from edhoc.roles.edhoc import EdhocRole, RPK, CoseHeaderMap, cached_property_singledelete
+from edhoc.roles.edhoc import EdhocRole, ParsableCred, RPK, CoseHeaderMap, cached_property_singledelete
 
 if TYPE_CHECKING:
     from edhoc.definitions import CS
@@ -25,11 +25,11 @@ class Responder(EdhocRole):
     remote_role = 'I'
 
     def __init__(self,
-                 cred_local: Cred,
+                 cred_local: ParsableCred,
                  id_cred_r: CoseHeaderMap,
                  auth_key: RPK,
                  supported_ciphers: List[Type['CS']],
-                 remote_cred_cb: Callable[[CoseHeaderMap], Cred],
+                 remote_cred_cb: Callable[[CoseHeaderMap], ParsableCred],
                  c_r: Union[bytes, int],
                  aad1_cb: Optional[Callable[..., bytes]] = None,
                  aad2_cb: Optional[Callable[..., bytes]] = None,
