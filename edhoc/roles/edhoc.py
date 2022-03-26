@@ -83,13 +83,10 @@ class EdhocRole(metaclass=ABCMeta):
 
         self._internal_state = EdhocState.EDHOC_WAIT
 
-    # FIXME deduplciate against transcript
     def hash(self, data):
         """Apply the H() function of the EDHOC specification, based on the
         selections previously taken"""
-        h = hashes.Hash(self.cipher_suite.hash.hash_cls())
-        h.update(data)
-        return h.finalize()
+        return self.cipher_suite.hash.compute_hash(data)
 
     def is_static_dh(self, role: str) -> bool:
         """
