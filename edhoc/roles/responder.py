@@ -13,7 +13,7 @@ from cose.messages import Enc0Message, Sign1Message
 from edhoc.definitions import CipherSuite, Correlation, EdhocState, cborstream, compress_id_cred_x, bytewise_xor
 from edhoc.exceptions import EdhocException
 from edhoc.messages import MessageOne, MessageError, MessageThree, EdhocMessage, MessageTwo
-from edhoc.roles.edhoc import EdhocRole, RPK, CoseHeaderMap
+from edhoc.roles.edhoc import EdhocRole, RPK, CoseHeaderMap, cached_property_singledelete
 
 if TYPE_CHECKING:
     from edhoc.definitions import CS
@@ -105,7 +105,7 @@ class Responder(EdhocRole):
     def id_cred_r(self) -> CoseHeaderMap:
         return self.id_cred_local
 
-    @property
+    @cached_property_singledelete
     def ciphertext_2(self) -> bytes:
         """ Create the ciphertext_2 message part from EDHOC message 2. """
 
@@ -284,13 +284,13 @@ class Responder(EdhocRole):
                            payload=ciphertext,
                            external_aad=self.th_3).decrypt()
 
-    @property
+    @cached_property_singledelete
     def shared_secret_rx(self):
         r = self.auth_key
         g_x = self.remote_pubkey
         return self.shared_secret(r, g_x)
 
-    @property
+    @cached_property_singledelete
     def shared_secret_iy(self):
         y = self.ephemeral_key
         g_i = self.remote_authkey

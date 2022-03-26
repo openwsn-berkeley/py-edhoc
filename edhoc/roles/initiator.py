@@ -12,7 +12,7 @@ from cose.messages import Enc0Message, Sign1Message
 
 from edhoc.definitions import CipherSuite, Method, Correlation, EdhocState, bytewise_xor, cborstream, compress_id_cred_x
 from edhoc.messages import MessageOne, MessageTwo, MessageThree, EdhocMessage, MessageError
-from edhoc.roles.edhoc import EdhocRole, CoseHeaderMap, RPK
+from edhoc.roles.edhoc import EdhocRole, CoseHeaderMap, RPK, cached_property_singledelete
 
 if TYPE_CHECKING:
     from edhoc.definitions import CS
@@ -207,7 +207,7 @@ class Initiator(EdhocRole):
         # pass the connection identifiers and the algorithms identifiers
         return self.c_i, self.c_r, app_aead.identifier, app_hash.identifier
 
-    @property
+    @cached_property_singledelete
     def ciphertext_3(self):
         # FIXME
         ead_3 = []
@@ -255,13 +255,13 @@ class Initiator(EdhocRole):
 
         return bytewise_xor(ciphertext, keystream_2)
 
-    @property
+    @cached_property_singledelete
     def shared_secret_rx(self):
         x = self.ephemeral_key
         g_r = self.remote_authkey
         return self.shared_secret(x, g_r)
 
-    @property
+    @cached_property_singledelete
     def shared_secret_iy(self):
         i = self.auth_key
         g_y = self.remote_pubkey

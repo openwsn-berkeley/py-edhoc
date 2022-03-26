@@ -35,6 +35,29 @@ RPK = Union[EC2Key, OKPKey]
 CBOR = bytes
 CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
 
+class cached_property_singledelete(functools.cached_property):
+    """Like functools.cached_property, but when deleted, later accesses raise
+    an AttributeError rather than recomputing.
+
+    This serves a safety net on possibly security critical calculations:
+    Properties of an EdhocRole object are not supposed to be calculated twice,
+    and are deleted according to EDHOC's requirements on forgetting short-lived
+    properties. Recalculation may or may not be a security issue, but as it is
+    not needed it is made impossible, erring on the side of caution."""
+
+    # Singleton for deleted cached properties
+    __DELETED = object()
+
+    def __delete__(self, instance):
+        instance.__dict__[self.attrname] = self.__DELETED
+
+    def __get__(self, instance, owner=None):
+        result = super().__get__(instance, owner)
+        if result is self.__DELETED:
+            raise AttributeError(f"Attribute {self.attrname} was deleted, not recomputing it.")
+        return result
+
+
 class EdhocRole(metaclass=ABCMeta):
 
     def __init__(self,
@@ -131,7 +154,7 @@ class EdhocRole(metaclass=ABCMeta):
 
         return secret
 
-    @property
+    @cached_property_singledelete
     def shared_secret_xy(self):
         return self.shared_secret(self.ephemeral_key, self.remote_pubkey)
 
@@ -238,46 +261,46 @@ class EdhocRole(metaclass=ABCMeta):
         else:
             raise NotImplementedError()
 
-    @property
+    @cached_property_singledelete
     def prk_2e(self):
         return self.extract(b"", self.shared_secret_xy)
 
-    @property
+    @cached_property_singledelete
     def prk_3e2m(self):
         if self.is_static_dh('R'):
             return self.extract(self.prk_2e, self.shared_secret_rx)
         else:
             return self.prk_2e
 
-    @property
+    @cached_property_singledelete
     def prk_4x3m(self):
         if self.is_static_dh('I'):
             return self.extract(self.prk_3e2m, self.shared_secret_iy)
         else:
             return self.prk_3e2m
 
-    @property
+    @cached_property_singledelete
     def th_2(self) -> bytes:
         msg_1_hash = self.hash(self.msg_1.encoded)
         input_data = [msg_1_hash, self.g_y, self.c_r]
 
         return self.hash(cborstream(input_data))
 
-    @property
+    @cached_property_singledelete
     def mac_length_2(self) -> int:
         if self.is_static_dh('R'):
             return self.cipher_suite.edhoc_mac_length
         else:
             return self.cipher_suite.hash.hash_cls.digest_size
 
-    @property
+    @cached_property_singledelete
     def mac_length_3(self) -> int:
         if self.is_static_dh('I'):
             return self.cipher_suite.edhoc_mac_length
         else:
             return self.cipher_suite.hash.hash_cls.digest_size
 
-    @property
+    @cached_property_singledelete
     def mac_2(self) -> bytes:
         # FIXME
         ead_2 = []
@@ -289,7 +312,7 @@ class EdhocRole(metaclass=ABCMeta):
                 self.mac_length_2,
                 )
 
-    @property
+    @cached_property_singledelete
     def mac_3(self) -> bytes:
         # FIXME
         ead_3 = []
@@ -301,18 +324,16 @@ class EdhocRole(metaclass=ABCMeta):
                 self.mac_length_3,
                 )
 
-    @property
+    @cached_property_singledelete
     def th_3(self) -> bytes:
         th_2 = self.th_2
         ciphertext_2 = self.ciphertext_2
         return self.hash(cborstream([th_2, ciphertext_2]))
 
-    @property
+    @cached_property_singledelete
     def th_4(self) -> bytes:
         return self.hash(cborstream([self.th_3, self.ciphertext_3]))
 
-    # FIXME reevaluate where we want to do these
-    @functools.lru_cache()
     def edhoc_kdf(self, prk: bytes, transcript_hash: bytes, label: str, context: bytes, length: int) -> bytes:
         """Implementation of EDHOC-KDF() of the specification"""
         hash_func = self.cipher_suite.hash.hash_cls
