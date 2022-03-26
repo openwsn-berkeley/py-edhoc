@@ -32,12 +32,11 @@ if TYPE_CHECKING:
     from cose.headers import CoseHeaderAttribute
 
 RPK = Union[EC2Key, OKPKey]
-CWT = NewType("CWT", bytes)
-ActualCred = Union[Certificate, CCS, CWT]
 ## Tuple that can be fed to a EdhocRole as own or remote cred that already
-## contains the associated key (which is useful for exotic creds from which
-## _parse_credentials an not extract the public key)
-PreparsedCred = Tuple[ActualCred, RPK]
+## contains the serialization of any credential, and its associated key (which
+## is useful for exotic creds from which _parse_credentials an not extract the
+## public key)
+PreparsedCred = Tuple[bytes, RPK]
 ParsableCred = Union[Certificate, CCS, PreparsedCred]
 CBOR = bytes
 CoseHeaderMap = Dict[Type[CoseHeaderAttribute], Any]
@@ -354,7 +353,7 @@ class EdhocRole(metaclass=ABCMeta):
             self.ephemeral_key = EC2Key.generate_key(crv=chosen_suite.dh_curve)
 
     @staticmethod
-    def _parse_credentials(cred: ParsableCred) -> Tuple[ActualCred, RPK]:
+    def _parse_credentials(cred: ParsableCred) -> PreparsedCred:
         """
         Internal helper function that parser credentials and extracts the public key.
         """
