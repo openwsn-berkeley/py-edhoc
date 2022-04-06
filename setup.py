@@ -47,6 +47,10 @@ setup(
     keywords=['EDHOC', 'Internet of Things', 'CBOR', 'object security', 'COSE', 'OSCORE', 'cryptography'],
     author='Timothy Claeys',
     author_email='timothy.claeys@gmail.com',
+    url='https://github.com/openwsn-berkeley/py-edhoc',
+    project_urls={
+        'Issue tracker': 'https://github.com/openwsn-berkeley/py-edhoc/issues',
+    },
     license='BSD-3',
     classifiers=[
         'Development Status :: 3 - Alpha',
