@@ -2,8 +2,8 @@
 ![Python package](https://github.com/openwsn-berkeley/py-edhoc/workflows/Python%20package/badge.svg)
 ![Python 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
 
-This project provides a Python implementation of the EDHOC key exchange protocol for constrained devices. 
-Currently the protocol is still in [draft](https://datatracker.ietf.org/doc/draft-ietf-lake-edhoc/) status at the IETF.
+This project provides a Python implementation of the EDHOC key exchange protocol for constrained devices.
+The code is outdated and it is **not** aligned with [RFC 9528](https://datatracker.ietf.org/doc/rfc9528/).
 
 The repository provides an implementation of:
   * <s>[https://datatracker.ietf.org/doc/html/draft-ietf-lake-edhoc-01](https://datatracker.ietf.org/doc/html/draft-ietf-lake-edhoc-01)</s>
