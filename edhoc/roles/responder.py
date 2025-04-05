@@ -245,9 +245,9 @@ class Responder(EdhocRole):
                 phdr=self.cred_idi,
                 uhdr={headers.Algorithm: self.cipher_suite.sign_alg},
                 payload=mac_3,
+                key=self.remote_authkey,
                 external_aad=external_aad)
             # FIXME peeking into internals (probably best resolved at pycose level)
-            cose_sign.key = self.remote_authkey
             cose_sign._signature = signature_or_mac3
             return cose_sign.verify_signature()
         else:
